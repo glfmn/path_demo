@@ -1,0 +1,13 @@
+[package]
+name = "path_demo"
+version = "0.1.0"
+authors = ["Gwen Lofman <Gwen@Lofman.io>"]
+edition = "2018"
+
+[lib]
+name = "game_lib"
+path = "lib/lib.rs"
+
+[dependencies]
+tcod = "0.13"
+rand = "0.6"
