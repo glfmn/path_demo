@@ -9,23 +9,11 @@ pub struct Tile {
 }
 
 impl Tile {
-    pub const WALL: Self = Tile {
-        explored: false,
-        blocked: true,
-        wall: true,
-    };
+    pub const WALL: Self = Tile { explored: false, blocked: true, wall: true };
 
-    pub const FLOOR: Self = Tile {
-        explored: false,
-        blocked: false,
-        wall: false,
-    };
+    pub const FLOOR: Self = Tile { explored: false, blocked: false, wall: false };
 
-    pub const BLOCK: Self = Tile {
-        explored: false,
-        blocked: true,
-        wall: false,
-    };
+    pub const BLOCK: Self = Tile { explored: false, blocked: true, wall: false };
 
     pub fn is_blocking(&self) -> bool {
         self.blocked
@@ -54,11 +42,7 @@ impl Map {
     /// out of the map.
     fn new(width: u32, height: u32) -> Self {
         let tiles = vec![Tile::WALL; (width * height) as usize];
-        Map {
-            tiles,
-            width,
-            height,
-        }
+        Map { tiles, width, height }
     }
 
     /// Convert two values from a subscript into an index to the tile vector
@@ -84,10 +68,7 @@ impl Index<(u32, u32)> for Map {
 
     fn index(&self, (x, y): (u32, u32)) -> &Self::Output {
         if y >= self.height || x >= self.width {
-            panic!(
-                "Index ({}, {}) out of bounds ({}, {})",
-                x, y, self.width, self.height
-            );
+            panic!("Index ({}, {}) out of bounds ({}, {})", x, y, self.width, self.height);
         }
 
         let index = self.sub2ind(x, y);
@@ -98,10 +79,7 @@ impl Index<(u32, u32)> for Map {
 impl IndexMut<(u32, u32)> for Map {
     fn index_mut(&mut self, (x, y): (u32, u32)) -> &mut Tile {
         if y >= self.height || x >= self.width {
-            panic!(
-                "Index ({}, {}) out of bounds ({}, {})",
-                x, y, self.width, self.height
-            );
+            panic!("Index ({}, {}) out of bounds ({}, {})", x, y, self.width, self.height);
         }
 
         let index = self.sub2ind(x, y);
@@ -119,11 +97,7 @@ pub fn generate(width: u32, height: u32) -> Map {
         // on first pass, fill the floors with a certain density
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
-                map[(x, y)] = if random::<f32>() < 0.52 {
-                    Tile::FLOOR
-                } else {
-                    Tile::WALL
-                }
+                map[(x, y)] = if random::<f32>() < 0.52 { Tile::FLOOR } else { Tile::WALL }
             }
         }
 
@@ -178,11 +152,7 @@ pub fn generate(width: u32, height: u32) -> Map {
                         }
                     }
 
-                    next[(x, y)] = if adjacency_1 >= 4 {
-                        Tile::WALL
-                    } else {
-                        Tile::FLOOR
-                    }
+                    next[(x, y)] = if adjacency_1 >= 4 { Tile::WALL } else { Tile::FLOOR }
                 }
             }
             map = next.clone();

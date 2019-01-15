@@ -1,0 +1,6 @@
+format_strings = true
+wrap_comments = true
+normalize_comments = true
+comment_width = 100
+max_width = 95
+use_small_heuristics = "Max"

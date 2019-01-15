@@ -19,31 +19,19 @@ const MAP_WIDTH: u32 = SCREEN_WIDTH;
 const MAP_HEIGHT: u32 = SCREEN_HEIGHT;
 
 /// Colors of walls in the game, contrasting lit with unlit
-const COLOR_LIGHT_WALL: Color = Color {
-    r: 130,
-    g: 110,
-    b: 50,
-};
+const COLOR_LIGHT_WALL: Color = Color { r: 130, g: 110, b: 50 };
 const COLOR_DARK_WALL: Color = Color { r: 0, g: 0, b: 100 };
 
 /// Ground color in the game, contrasting lit with unlit
-const COLOR_LIGHT_GROUND: Color = Color {
-    r: 200,
-    g: 180,
-    b: 50,
-};
-const COLOR_DARK_GROUND: Color = Color {
-    r: 50,
-    g: 50,
-    b: 150,
-};
+const COLOR_LIGHT_GROUND: Color = Color { r: 200, g: 180, b: 50 };
+const COLOR_DARK_GROUND: Color = Color { r: 50, g: 50, b: 150 };
 
 fn main() {
     let mut root = Root::initializer()
         .font("prestige12x12_gs_tc.png", FontLayout::Tcod)
         .font_type(FontType::Greyscale)
         .size(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32)
-        .title("Rust/libtcod tutorial")
+        .title("Pathfinding")
         .init();
 
     let mut map_console = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
@@ -70,12 +58,14 @@ fn main() {
 
         for y in 0..MAP_HEIGHT {
             for x in 0..MAP_WIDTH {
-                let color = if map[(x, y)].is_wall() {
-                    COLOR_DARK_WALL
-                } else {
-                    COLOR_DARK_GROUND
-                };
-                map_console.set_char_background(x as i32, y as i32, color, BackgroundFlag::Set);
+                let color =
+                    if map[(x, y)].is_wall() { COLOR_DARK_WALL } else { COLOR_DARK_GROUND };
+                map_console.set_char_background(
+                    x as i32,
+                    y as i32,
+                    color,
+                    BackgroundFlag::Set,
+                );
             }
         }
 
