@@ -63,6 +63,11 @@ fn main() {
             }
         }
 
+        if let Some(&Tile::FLOOR) = map.get(mouse.cx as u32, mouse.cy as u32) {
+            map_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::None);
+            map_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, COLOR_CURSOR);
+        }
+
         blit(
             &mut map_layer,
             (0, 0),
