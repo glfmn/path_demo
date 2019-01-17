@@ -40,7 +40,7 @@ impl Map {
     ///
     /// The default map is impossible to traverse, with the assumption that areas will be carved
     /// out of the map.
-    fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         let tiles = vec![Tile::WALL; (width * height) as usize];
         Map { tiles, width, height }
     }
