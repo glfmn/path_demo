@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::ops::{Index, IndexMut};
 
-/// A tile on the map
+/// A Tile on the map
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tile {
     explored: bool,
@@ -49,6 +49,19 @@ impl Map {
     pub fn new(width: u32, height: u32) -> Self {
         let tiles = vec![Tile::WALL; (width * height) as usize];
         Map { tiles, width, height }
+    }
+
+    /// The width and height of the map
+    ///
+    /// ```
+    /// # use game_lib::map::Map;
+    /// # let width = 10;
+    /// # let height = 10;
+    /// let map = Map::new(width, height);
+    /// assert_eq!((width, height), map.dimensions());
+    /// ```
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.width, self.height)
     }
 
     /// Convert two values from a subscript into an index to the tile vector
