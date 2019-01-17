@@ -1,7 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 /// A tile on the map
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tile {
     explored: bool,
     blocked: bool,
@@ -28,7 +28,7 @@ impl Tile {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Map {
     tiles: Vec<Tile>,
     width: u32,
