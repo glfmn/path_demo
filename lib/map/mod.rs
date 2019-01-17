@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ops::{Index, IndexMut};
 
 /// A tile on the map
@@ -26,6 +27,11 @@ impl Tile {
     pub fn is_explored(&self) -> bool {
         self.explored
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MapError {
+    InfiniteLoop,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +66,102 @@ impl Map {
     pub fn get_mut(&mut self, x: u32, y: u32) -> Option<&mut Tile> {
         let index = self.sub2ind(x, y);
         self.tiles.get_mut(index)
+    }
+
+    /// Return a set of adjacent tiles which satisfy a predicate
+    ///
+    /// If the first tile does not match the predicate, the set will exit early and return an empty
+    /// set.
+    pub fn flood_select<F>(&mut self, x: u32, y: u32, predicate: F) -> HashSet<(u32, u32)>
+    where
+        F: Fn(&Tile) -> bool,
+    {
+        let mut set = HashSet::new();
+
+        // Return early if the first tile in the cluster does not satisfy the predicate
+        if let Some(tile) = self.get(x, y) {
+            if !predicate(tile) {
+                return set;
+            }
+        }
+
+        let mut queue = vec![(x, y)];
+        while !queue.is_empty() {
+            // Queue should never be empty, so pop the last element without checking
+            let (x, y) = queue.pop().unwrap();
+
+            // Clamp lower bounds to zero to prevent underflow
+            for y in y.max(1) - 1..y + 2 {
+                for x in x.max(1) - 1..x + 2 {
+                    // If a tile exists and has not been seen before, check the predicate
+                    if let Some(tile) = self.get(x, y) {
+                        if !set.contains(&(x, y)) && predicate(tile) {
+                            set.insert((x, y));
+                            // search around the tile in a future iteration
+                            queue.push((x, y));
+                        }
+                    }
+                }
+            }
+        }
+
+        set
+    }
+
+    /// Replace the set of adjacent elements matching a predicate with a new tile
+    ///
+    /// The replacement `Tile` _must_ not match the predicate, otherwise this would cause an
+    /// infinite loop.
+    ///
+    /// ```rust
+    /// # use game_lib::map::*;
+    /// # let mut map = Map::new(5, 5);
+    /// let is_wall = |tile: &Tile| tile.is_wall();
+    /// let replace = Tile::WALL;
+    /// if is_wall(&replace) {
+    ///     assert_eq!(
+    ///         Err(MapError::InfiniteLoop),
+    ///         map.flood_replace(1, 1, is_wall, replace),
+    ///     );
+    /// } else {
+    ///     panic!("will not cause an infinite loop");
+    /// }
+    /// ```
+    pub fn flood_replace<F>(
+        &mut self,
+        x: u32,
+        y: u32,
+        predicate: F,
+        replacement: Tile,
+    ) -> Result<(), MapError>
+    where
+        F: Fn(&Tile) -> bool,
+    {
+        use self::MapError::*;
+
+        if predicate(&replacement) {
+            return Err(InfiniteLoop);
+        }
+
+        let mut queue = vec![(x, y)];
+        while queue.len() != 0 {
+            let (x, y) = queue.pop().unwrap();
+            // prevent underflow
+            for y in y.max(1) - 1..y + 2 {
+                for x in x.max(1) - 1..x + 2 {
+                    if let Some(tile) = self.get_mut(x, y) {
+                        if !predicate(tile) {
+                            continue;
+                        } else {
+                            *tile = replacement.clone();
+                            queue.push((x, y));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
