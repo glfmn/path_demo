@@ -3,10 +3,10 @@ extern crate tcod;
 
 mod draw;
 
-use game_lib::map::{generate, Map, Tile};
+use game_lib::map::{generate, Tile};
 use tcod::colors::{self, Color};
 use tcod::console::*;
-use tcod::input::{self, Event, Key, Mouse};
+use tcod::input::{self, Event, Key};
 
 /// Screen width in number of vertical columns of text
 const SCREEN_WIDTH: u32 = 100;
@@ -18,13 +18,12 @@ const SCREEN_HEIGHT: u32 = 80;
 const MAP_WIDTH: u32 = SCREEN_WIDTH;
 const MAP_HEIGHT: u32 = SCREEN_HEIGHT;
 
-/// Colors of walls in the game, contrasting lit with unlit
-const COLOR_LIGHT_WALL: Color = Color { r: 130, g: 110, b: 50 };
-const COLOR_DARK_WALL: Color = Color { r: 0, g: 0, b: 100 };
+// Color of map tiles
+const COLOR_WALL: Color = Color { r: 0, g: 0, b: 100 };
+const COLOR_GROUND: Color = Color { r: 50, g: 50, b: 150 };
 
-/// Ground color in the game, contrasting lit with unlit
-const COLOR_LIGHT_GROUND: Color = Color { r: 200, g: 180, b: 50 };
-const COLOR_DARK_GROUND: Color = Color { r: 50, g: 50, b: 150 };
+// Color of the cursor and other UI elements
+const COLOR_CURSOR: Color = Color { r: 200, g: 180, b: 50 };
 
 fn main() {
     let mut root = Root::initializer()
@@ -34,7 +33,7 @@ fn main() {
         .title("Pathfinding")
         .init();
 
-    let mut map_console = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
+    let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
 
     tcod::system::set_fps(30);
 
@@ -56,21 +55,16 @@ fn main() {
             _ => (),
         };
 
+        map_layer.clear();
         for y in 0..MAP_HEIGHT {
             for x in 0..MAP_WIDTH {
-                let color =
-                    if map[(x, y)].is_wall() { COLOR_DARK_WALL } else { COLOR_DARK_GROUND };
-                map_console.set_char_background(
-                    x as i32,
-                    y as i32,
-                    color,
-                    BackgroundFlag::Set,
-                );
+                let color = if map[(x, y)].is_wall() { COLOR_WALL } else { COLOR_GROUND };
+                map_layer.set_char_background(x as i32, y as i32, color, BackgroundFlag::Set);
             }
         }
 
         blit(
-            &mut map_console,
+            &mut map_layer,
             (0, 0),
             (SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32),
             &mut root,
