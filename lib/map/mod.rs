@@ -84,6 +84,48 @@ impl Map {
         self.tiles.get_mut(index)
     }
 
+    /// Run some operation on tiles adjacent to `(x, y)`
+    ///
+    /// Iterates over the tiles in the order they are laid out in memory.
+    ///
+    /// |       | `x - 1` | `x` | `x + 1` |
+    /// |:-----:|---------|-----|---------|
+    /// |`y - 1`| 1       | 2   | 3       |
+    /// |`y`    | 4       | 5   | 6       |
+    /// |`y + 1`| 7       | 8   | 9       |
+    ///
+    /// If any values are outside the range of the map, they are simply skipped.
+    #[inline]
+    pub fn fold_adjacent<B, F>(&self, x: u32, y: u32, range: u32, mut acc: B, op: F) -> B
+    where
+        F: Fn(&Tile, B) -> B,
+    {
+        let x_range = x.max(range) - range..=(x + range).min(self.width);
+        for y in y.max(range) - range..=(y + range).min(self.height) {
+            for x in x_range.clone() {
+                if let Some(tile) = self.get(x, y) {
+                    acc = op(tile, acc);
+                }
+            }
+        }
+
+        acc
+    }
+
+    #[inline]
+    pub fn map_adjacent<F>(&self, range: u32, x: u32, y: u32, mut op: F)
+    where
+        F: FnMut(&Tile),
+    {
+        for y in y.max(range) - range..=(y + range).min(self.height) {
+            for x in x.max(range) - range..=(x + range).min(self.width) {
+                if let Some(tile) = self.get(x, y) {
+                    op(tile);
+                }
+            }
+        }
+    }
+
     /// Return a set of adjacent tiles which satisfy a predicate
     ///
     /// If the first tile does not match the predicate, the set will exit early and return an empty
@@ -229,24 +271,21 @@ where
             // use a celular automata algorithm to smooth the map
             for y in 1..(height - 1) {
                 for x in 1..(width - 1) {
-                    let mut adjacency_1 = 0;
-                    let mut adjacency_2 = 0;
-
-                    for yy in y - 1..=y + 1 {
-                        for xx in x - 1..=x + 1 {
-                            if map[(xx, yy)].is_wall() {
-                                adjacency_1 += 1;
-                            }
+                    let adjacency_1 = map.fold_adjacent(x, y, 1, 0, |tile, sum| {
+                        if tile.is_wall() {
+                            sum + 1
+                        } else {
+                            sum
                         }
-                    }
+                    });
 
-                    for yy in (y.max(2) - 2)..=(y + 2).min(height - 1) {
-                        for xx in (x.max(2) - 2)..=(x + 2).min(width - 1) {
-                            if map[(xx, yy)].is_wall() {
-                                adjacency_2 += 1;
-                            }
+                    let mut adjacency_2 = map.fold_adjacent(x, y, 2, 0, |tile, sum| {
+                        if tile.is_wall() {
+                            sum + 1
+                        } else {
+                            sum
                         }
-                    }
+                    });
 
                     next[(x, y)] = if adjacency_1 >= 5 || adjacency_2 <= 0 {
                         Tile::WALL
@@ -263,15 +302,13 @@ where
             // use a celular automata algorithm to smooth the map
             for y in 1..(height - 1) {
                 for x in 1..(width - 1) {
-                    let mut adjacency_1 = 0;
-
-                    for yy in y - 1..=y + 1 {
-                        for xx in x - 1..=x + 1 {
-                            if map[(xx, yy)].is_wall() {
-                                adjacency_1 += 1;
-                            }
+                    let adjacency_1 = map.fold_adjacent(x, y, 1, 0, |tile, adjacency| {
+                        if tile.is_wall() {
+                            adjacency + 1
+                        } else {
+                            adjacency
                         }
-                    }
+                    });
 
                     next[(x, y)] = if adjacency_1 >= 4 { Tile::WALL } else { Tile::FLOOR }
                 }
