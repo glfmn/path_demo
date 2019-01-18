@@ -128,9 +128,9 @@ impl Map {
 
     /// Return a set of adjacent tiles which satisfy a predicate
     ///
-    /// If the first tile does not match the predicate, the set will exit early and return an empty
-    /// set.
-    pub fn flood_select<F>(&mut self, x: u32, y: u32, predicate: F) -> HashSet<(u32, u32)>
+    /// If the first tile does not match the predicate, then the selection exits early and returns
+    /// an empty set.
+    pub fn flood_select<F>(&self, x: u32, y: u32, predicate: F) -> HashSet<(u32, u32)>
     where
         F: Fn(&Tile) -> bool,
     {
@@ -191,7 +191,7 @@ impl Map {
         y: u32,
         predicate: F,
         replacement: Tile,
-    ) -> Result<(), MapError>
+    ) -> Result<usize, MapError>
     where
         F: Fn(&Tile) -> bool,
     {
@@ -201,6 +201,7 @@ impl Map {
             return Err(InfiniteLoop);
         }
 
+        let mut size = 0;
         let mut queue = vec![(x, y)];
         while queue.len() != 0 {
             let (x, y) = queue.pop().unwrap();
@@ -213,13 +214,14 @@ impl Map {
                         } else {
                             *tile = replacement.clone();
                             queue.push((x, y));
+                            size += 1;
                         }
                     }
                 }
             }
         }
 
-        Ok(())
+        Ok(size)
     }
 }
 
@@ -251,8 +253,6 @@ pub fn generate<R>(rng: &mut R, width: u32, height: u32) -> Map
 where
     R: rand::Rng,
 {
-    use rand::prelude::*;
-
     let mut map = Map::new(width, height);
 
     let mut fill = 0.0;
@@ -324,24 +324,11 @@ where
                     continue;
                 }
 
-                let mut size = 0;
-                let mut queue = Vec::with_capacity(width as usize * height as usize);
-                queue.push((x, y));
-                while queue.len() != 0 {
-                    let (x, y) = queue.pop().unwrap();
-                    for y in y - 1..y + 2 {
-                        for x in x - 1..x + 2 {
-                            if cluster_map[(x, y)].is_wall() {
-                                continue;
-                            }
-                            cluster_map[(x, y)] = Tile::WALL;
-                            queue.push((x, y));
-                            size += 1;
-                        }
-                    }
+                if let Ok(size) =
+                    cluster_map.flood_replace(x, y, |tile| !tile.is_wall(), Tile::WALL)
+                {
+                    clusters.push((x, y, size));
                 }
-
-                clusters.push((x, y, size));
             }
         }
 
@@ -350,7 +337,7 @@ where
 
         for (x, y, _) in clusters {
             match map.flood_replace(x, y, |tile| !tile.is_wall(), Tile::WALL) {
-                Ok(()) => continue,
+                Ok(_) => continue,
                 Err(MapError::InfiniteLoop) => continue,
             }
         }
