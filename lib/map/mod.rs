@@ -279,7 +279,7 @@ where
                         }
                     });
 
-                    let mut adjacency_2 = map.fold_adjacent(x, y, 2, 0, |tile, sum| {
+                    let adjacency_2 = map.fold_adjacent(x, y, 2, 0, |tile, sum| {
                         if tile.is_wall() {
                             sum + 1
                         } else {
