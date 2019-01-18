@@ -21,8 +21,10 @@ const MAP_WIDTH: u32 = SCREEN_WIDTH;
 const MAP_HEIGHT: u32 = SCREEN_HEIGHT;
 
 // Color of map tiles
-const COLOR_WALL: Color = Color { r: 0, g: 0, b: 100 };
-const COLOR_GROUND: Color = Color { r: 50, g: 50, b: 150 };
+const COLOR_GROUND_FG: Color = Color { r: 198, g: 197, b: 195 };
+const COLOR_GROUND_BG: Color = Color { r: 233, g: 232, b: 232 };
+const COLOR_WALL_FG: Color = Color { r: 85, g: 81, b: 79 };
+const COLOR_WALL_BG: Color = Color { r: 28, g: 22, b: 20 };
 
 // Color of the cursor and other UI elements
 const COLOR_CURSOR: Color = Color { r: 200, g: 180, b: 50 };
@@ -31,8 +33,12 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
     map_layer.clear();
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
-            let color = if map[(x, y)].is_wall() { COLOR_WALL } else { COLOR_GROUND };
-            map_layer.set_char_background(x as i32, y as i32, color, BackgroundFlag::Set);
+            let (char, fg_color, bg_color) = if map[(x, y)].is_wall() {
+                ('%', COLOR_WALL_FG, COLOR_WALL_BG)
+            } else {
+                ('.', COLOR_GROUND_FG, COLOR_GROUND_BG)
+            };
+            map_layer.put_char_ex(x as i32, y as i32, char, fg_color, bg_color);
         }
     }
 
