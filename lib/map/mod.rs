@@ -113,7 +113,7 @@ impl Map {
     }
 
     #[inline]
-    pub fn map_adjacent<F>(&self, range: u32, x: u32, y: u32, mut op: F)
+    pub fn map_adjacent<F>(&self, x: u32, y: u32, range: u32, mut op: F)
     where
         F: FnMut(&Tile),
     {
@@ -124,6 +124,13 @@ impl Map {
                 }
             }
         }
+    }
+
+    pub fn count_adjacent<F>(&self, x: u32, y: u32, range: u32, pred: F) -> usize
+    where
+        F: Fn(&Tile) -> bool,
+    {
+        self.fold_adjacent(x, y, range, 0, |tile, sum| if pred(tile) { sum + 1 } else { sum })
     }
 
     /// Return a set of adjacent tiles which satisfy a predicate
@@ -271,21 +278,8 @@ where
             // use a celular automata algorithm to smooth the map
             for y in 1..(height - 1) {
                 for x in 1..(width - 1) {
-                    let adjacency_1 = map.fold_adjacent(x, y, 1, 0, |tile, sum| {
-                        if tile.is_wall() {
-                            sum + 1
-                        } else {
-                            sum
-                        }
-                    });
-
-                    let adjacency_2 = map.fold_adjacent(x, y, 2, 0, |tile, sum| {
-                        if tile.is_wall() {
-                            sum + 1
-                        } else {
-                            sum
-                        }
-                    });
+                    let adjacency_1 = map.count_adjacent(x, y, 1, |tile| tile.is_wall());
+                    let adjacency_2 = map.count_adjacent(x, y, 2, |tile| tile.is_wall());
 
                     next[(x, y)] = if adjacency_1 >= 5 || adjacency_2 <= 0 {
                         Tile::WALL
@@ -302,15 +296,8 @@ where
             // use a celular automata algorithm to smooth the map
             for y in 1..(height - 1) {
                 for x in 1..(width - 1) {
-                    let adjacency_1 = map.fold_adjacent(x, y, 1, 0, |tile, adjacency| {
-                        if tile.is_wall() {
-                            adjacency + 1
-                        } else {
-                            adjacency
-                        }
-                    });
-
-                    next[(x, y)] = if adjacency_1 >= 4 { Tile::WALL } else { Tile::FLOOR }
+                    let count = map.count_adjacent(x, y, 1, |tile| tile.is_wall());
+                    next[(x, y)] = if count >= 4 { Tile::WALL } else { Tile::FLOOR }
                 }
             }
             map = next.clone();
