@@ -10,10 +10,13 @@ pub struct Tile {
 }
 
 impl Tile {
+    /// An impassable wall in the game world
     pub const WALL: Self = Tile { explored: false, blocked: true, wall: true };
 
+    /// A tile that entities can be placed in and freely move through
     pub const FLOOR: Self = Tile { explored: false, blocked: false, wall: false };
 
+    /// A tile which blocks movement but is not a wall
     pub const BLOCK: Self = Tile { explored: false, blocked: true, wall: false };
 
     pub fn is_blocking(&self) -> bool {
