@@ -306,19 +306,9 @@ pub fn generate(width: u32, height: u32) -> Map {
         clusters.pop();
 
         for (x, y, _) in clusters {
-            let mut queue = vec![(x, y)];
-            while queue.len() != 0 {
-                let (x, y) = queue.pop().unwrap();
-                for y in y - 1..y + 2 {
-                    for x in x - 1..x + 2 {
-                        if map[(x, y)].is_wall() {
-                            continue;
-                        } else {
-                            map[(x, y)] = Tile::WALL;
-                            queue.push((x, y));
-                        }
-                    }
-                }
+            match map.flood_replace(x, y, |tile| !tile.is_wall(), Tile::WALL) {
+                Ok(()) => continue,
+                Err(MapError::InfiniteLoop) => continue,
             }
         }
 
