@@ -117,8 +117,8 @@ impl Map {
     where
         F: FnMut(&Tile),
     {
-        for y in y.max(range) - range..=(y + range).min(self.height) {
-            for x in x.max(range) - range..=(x + range).min(self.width) {
+        for y in y.max(range) - range..=(y + range).min(self.height - 1) {
+            for x in x.max(range) - range..=(x + range).min(self.width - 1) {
                 if let Some(tile) = self.get(x, y) {
                     op(tile);
                 }
