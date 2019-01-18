@@ -21,10 +21,10 @@ const MAP_WIDTH: u32 = SCREEN_WIDTH;
 const MAP_HEIGHT: u32 = SCREEN_HEIGHT;
 
 // Color of map tiles
-const COLOR_GROUND_FG: Color = Color { r: 198, g: 197, b: 195 };
-const COLOR_GROUND_BG: Color = Color { r: 233, g: 232, b: 232 };
-const COLOR_WALL_FG: Color = Color { r: 85, g: 81, b: 79 };
-const COLOR_WALL_BG: Color = Color { r: 28, g: 22, b: 20 };
+const COLOR_WALL_FG: Color = Color { r: 198, g: 197, b: 195 };
+const COLOR_WALL_BG: Color = Color { r: 142, g: 139, b: 138 };
+const COLOR_GROUND_FG: Color = Color { r: 85, g: 81, b: 79 };
+const COLOR_GROUND_BG: Color = Color { r: 28, g: 22, b: 20 };
 
 // Color of the cursor and other UI elements
 const COLOR_CURSOR: Color = Color { r: 200, g: 180, b: 50 };
@@ -34,7 +34,8 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             let (char, fg_color, bg_color) = if map[(x, y)].is_wall() {
-                ('%', COLOR_WALL_FG, COLOR_WALL_BG)
+                let count = map.count_adjacent(x, y, 1, |tile| !tile.is_wall());
+                (if count == 0 { ' ' } else { '%' }, COLOR_WALL_FG, COLOR_WALL_BG)
             } else {
                 ('.', COLOR_GROUND_FG, COLOR_GROUND_BG)
             };
@@ -64,6 +65,7 @@ fn main() {
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
 
     tcod::system::set_fps(30);
+    tcod::input::show_cursor(false);
 
     let mut map_rng = thread_rng();
     let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
