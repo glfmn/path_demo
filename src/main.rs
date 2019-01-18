@@ -1,9 +1,11 @@
 extern crate game_lib;
+extern crate rand;
 extern crate tcod;
 
 mod draw;
 
 use game_lib::map::{generate, Tile};
+use rand::thread_rng;
 use tcod::colors::{self, Color};
 use tcod::console::*;
 use tcod::input::{self, Event, Key};
@@ -37,7 +39,9 @@ fn main() {
 
     tcod::system::set_fps(30);
 
-    let mut map = generate(MAP_WIDTH, MAP_HEIGHT);
+    let mut rng = thread_rng();
+
+    let mut map = generate(&mut rng, MAP_WIDTH, MAP_HEIGHT);
 
     let mut mouse = Default::default();
     let mut key = Default::default();
@@ -51,7 +55,7 @@ fn main() {
         use tcod::input::KeyCode::{Backspace, Escape};
         match key {
             Key { code: Escape, .. } => break,
-            Key { code: Backspace, .. } => map = generate(MAP_WIDTH, MAP_HEIGHT),
+            Key { code: Backspace, .. } => map = generate(&mut rng, MAP_WIDTH, MAP_HEIGHT),
             _ => (),
         };
 

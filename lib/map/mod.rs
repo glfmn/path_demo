@@ -202,7 +202,10 @@ impl IndexMut<(u32, u32)> for Map {
     }
 }
 
-pub fn generate(width: u32, height: u32) -> Map {
+pub fn generate<R>(rng: &mut R, width: u32, height: u32) -> Map
+where
+    R: rand::Rng,
+{
     use rand::prelude::*;
 
     let mut map = Map::new(width, height);
@@ -212,7 +215,7 @@ pub fn generate(width: u32, height: u32) -> Map {
         // on first pass, fill the floors with a certain density
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
-                map[(x, y)] = if random::<f32>() < 0.52 { Tile::FLOOR } else { Tile::WALL }
+                map[(x, y)] = if rng.gen::<f32>() < 0.52 { Tile::FLOOR } else { Tile::WALL }
             }
         }
 
