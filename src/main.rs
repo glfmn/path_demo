@@ -35,7 +35,7 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
         for x in 0..MAP_WIDTH {
             let (char, fg_color, bg_color) = if map[(x, y)].is_wall() {
                 let count = map.count_adjacent(x, y, 1, |tile| !tile.is_wall());
-                (if count == 0 { ' ' } else { '%' }, COLOR_WALL_FG, COLOR_WALL_BG)
+                (if count == 0 { ' ' } else { '#' }, COLOR_WALL_FG, COLOR_WALL_BG)
             } else {
                 ('.', COLOR_GROUND_FG, COLOR_GROUND_BG)
             };
@@ -56,7 +56,7 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
 
 fn main() {
     let mut root = Root::initializer()
-        .font("prestige12x12_gs_tc.png", FontLayout::Tcod)
+        .font("consolas12x12_gs_tc.png", FontLayout::Tcod)
         .font_type(FontType::Greyscale)
         .size(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32)
         .title("Pathfinding")
@@ -88,9 +88,11 @@ fn main() {
 
         draw_map(&mut root, &mut map_layer, &map);
 
-        if let Some(&Tile::FLOOR) = map.get(mouse.cx as u32, mouse.cy as u32) {
+        if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
             root.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::None);
-            root.set_char_foreground(mouse.cx as i32, mouse.cy as i32, COLOR_CURSOR);
+            let color =
+                if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::DESATURATED_FLAME };
+            root.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
         }
 
         root.flush();
