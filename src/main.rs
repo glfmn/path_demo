@@ -59,6 +59,58 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
     );
 }
 
+fn draw_vis(root: &mut Root, vis_layer: &mut Offscreen) {
+    vis_layer.clear();
+    vis_layer.set_key_color(colors::BLACK);
+    blit(
+        vis_layer,
+        (0, 0),
+        (SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32),
+        root,
+        (0, 0),
+        1f32,
+        1f32,
+    );
+}
+
+fn draw_ui(
+    root: &mut Root,
+    ui_layer: &mut Offscreen,
+    map: &Map,
+    mouse: &Mouse,
+    player: &Option<Position>,
+    monster: &Option<Monster>,
+) {
+    ui_layer.clear();
+    if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
+        ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::None);
+        let color =
+            if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::DESATURATED_FLAME };
+        ui_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
+    }
+
+    if let Some(monster) = &monster {
+        let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
+        ui_layer.put_char(x, y, 'M', BackgroundFlag::None);
+        ui_layer.set_char_foreground(x, y, COLOR_MONSTER);
+    }
+
+    if let Some(player) = &player {
+        let (x, y) = (player.x as i32, player.y as i32);
+        ui_layer.put_char(x, y, '@', BackgroundFlag::None);
+        ui_layer.set_char_foreground(x, y, COLOR_PLAYER);
+    }
+    blit(
+        ui_layer,
+        (0, 0),
+        (SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32),
+        root,
+        (0, 0),
+        1f32,
+        0f32,
+    );
+}
+
 fn overlaps_player(player: &Option<Position>, mouse: &Mouse) -> bool {
     if let Some(player) = player {
         if player.x == mouse.cx as u32 && player.y == mouse.cy as u32 {
@@ -92,6 +144,8 @@ fn main() {
         .init();
 
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
+    let mut vis_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
+    let mut ui_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
 
     let mut monster: Option<Monster> = None;
     let mut player: Option<Position> = None;
@@ -122,14 +176,7 @@ fn main() {
             _ => (),
         };
 
-        draw_map(&mut root, &mut map_layer, &map);
-
         if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
-            root.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::None);
-            let color =
-                if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::DESATURATED_FLAME };
-            root.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
-
             if mouse.lbutton && *tile == Tile::FLOOR && !overlaps_player(&player, &mouse) {
                 monster = if let Some(mut monster) = monster {
                     monster.pos.x = mouse.cx as u32;
@@ -151,18 +198,9 @@ fn main() {
             }
         }
 
-        if let Some(monster) = &monster {
-            let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
-            root.put_char(x, y, 'M', BackgroundFlag::None);
-            root.set_char_foreground(x, y, COLOR_MONSTER);
-        }
-
-        if let Some(player) = &player {
-            let (x, y) = (player.x as i32, player.y as i32);
-            root.put_char(x, y, '@', BackgroundFlag::None);
-            root.set_char_foreground(x, y, COLOR_PLAYER);
-        }
-
+        draw_map(&mut root, &mut map_layer, &map);
+        draw_vis(&mut root, &mut vis_layer);
+        draw_ui(&mut root, &mut ui_layer, &map, &mouse, &player, &monster);
         root.flush();
     }
 }
