@@ -1,4 +1,4 @@
-struct Item<A, D, P, U>
+pub struct Item<A, D, P, U>
 where
     A: Attack,
     D: Defense,
@@ -11,8 +11,8 @@ where
     use_effect: Option<U>,
 }
 
-trait Effect {}
+pub trait Effect {}
 
-trait Attack {}
+pub trait Attack {}
 
-trait Defense {}
+pub trait Defense {}
