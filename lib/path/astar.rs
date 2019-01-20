@@ -126,7 +126,7 @@ where
         self.queue.iter().map(|node| (&node.state, &node.control))
     }
 
-    pub fn inpect_discovered(
+    pub fn inspect_discovered(
         &self,
     ) -> impl Iterator<Item = &<<M as Model>::State as State>::Position> {
         self.grid.keys()
@@ -218,8 +218,9 @@ where
         start: &M::State,
         goal: &M::State,
         sampler: &mut S,
-    ) -> Result<M> {
+    ) -> PathResult<M> {
         use PathFindingErr::*;
+        use PathResult::*;
 
         if self.parent_map.is_empty() && self.queue.is_empty() {
             let start_id =
@@ -232,8 +233,11 @@ where
         }
 
         if let Some(current) = self.queue.pop() {
-            self.step(&current, model, &goal, sampler);
-            Ok(self.unwind_trajectory(model, current))
+            if self.step(&current, model, &goal, sampler) {
+                Final(self.unwind_trajectory(model, current))
+            } else {
+                Intermediate(self.unwind_trajectory(model, current))
+            }
         } else {
             Err(Unreachable)
         }
@@ -245,11 +249,12 @@ where
         start: M::State,
         goal: M::State,
         sampler: &mut S,
-    ) -> Result<M> {
+    ) -> PathResult<M> {
         use PathFindingErr::*;
+        use PathResult::*;
 
         if model.converge(&start, &goal) {
-            return Ok(Trajectory {
+            return Final(Trajectory {
                 cost: Default::default(),
                 trajectory: vec![(start, Default::default())],
             });
@@ -260,7 +265,7 @@ where
 
         while let Some(current) = self.queue.pop() {
             if self.step(&current, model, &goal, sampler) {
-                return Ok(self.unwind_trajectory(model, current));
+                return Final(self.unwind_trajectory(model, current));
             }
         }
 

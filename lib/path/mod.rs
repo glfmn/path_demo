@@ -79,6 +79,17 @@ where
 {
 }
 
+impl Cost for usize {}
+impl Cost for u8 {}
+impl Cost for u16 {}
+impl Cost for u32 {}
+impl Cost for u64 {}
+impl Cost for isize {}
+impl Cost for i8 {}
+impl Cost for i16 {}
+impl Cost for i32 {}
+impl Cost for i64 {}
+
 pub trait State {
     type Position: Eq + Hash + Debug;
 
@@ -210,6 +221,15 @@ where
     pub trajectory: Vec<(M::State, M::Control)>,
 }
 
+impl<M> Default for Trajectory<M>
+where
+    M: Model,
+{
+    fn default() -> Self {
+        Trajectory { cost: Default::default(), trajectory: Vec::new() }
+    }
+}
+
 /// Errors that result from
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathFindingErr {
@@ -217,7 +237,14 @@ pub enum PathFindingErr {
     IterationLimit(usize),
 }
 
-type Result<M> = core::result::Result<Trajectory<M>, PathFindingErr>;
+pub enum PathResult<M>
+where
+    M: Model,
+{
+    Final(Trajectory<M>),
+    Intermediate(Trajectory<M>),
+    Err(PathFindingErr),
+}
 
 /// A strategy to find a trajectory from the start state to the goal state
 pub trait Optimizer<M, S>
@@ -233,7 +260,7 @@ where
         start: &M::State,
         goal: &M::State,
         sampler: &mut S,
-    ) -> Result<M>;
+    ) -> PathResult<M>;
 
     /// Calcualte an optimal trajectory with SBMPO
     ///
@@ -245,5 +272,5 @@ where
         start: M::State,
         goal: M::State,
         sampler: &mut S,
-    ) -> Result<M>;
+    ) -> PathResult<M>;
 }

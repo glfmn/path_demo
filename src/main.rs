@@ -4,8 +4,10 @@ extern crate tcod;
 
 mod draw;
 
-use game_lib::actor::Monster;
+use game_lib::actor::{Monster, Movement, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
+use game_lib::path::astar::AStar;
+use game_lib::path::{Model, Optimizer, PathResult, State, Trajectory};
 use game_lib::Position;
 use rand::thread_rng;
 use tcod::colors::{self, Color};
@@ -13,7 +15,7 @@ use tcod::console::*;
 use tcod::input::{self, Event, Key, Mouse};
 
 /// Screen width in number of vertical columns of text
-const SCREEN_WIDTH: u32 = 100;
+const SCREEN_WIDTH: u32 = 120;
 
 /// Screen height in number of horizontal rows of text
 const SCREEN_HEIGHT: u32 = 80;
@@ -59,8 +61,46 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
     );
 }
 
-fn draw_vis(root: &mut Root, vis_layer: &mut Offscreen) {
+fn draw_vis(
+    root: &mut Root,
+    vis_layer: &mut Offscreen,
+    planner: &AStar<TurnOptimal>,
+    trajectory: &Trajectory<TurnOptimal>,
+) {
     vis_layer.clear();
+
+    for Position { x, y } in planner.inspect_discovered() {
+        vis_layer.put_char_ex(
+            *x as i32,
+            *y as i32,
+            '.',
+            colors::DARKER_RED,
+            colors::DARKEST_RED,
+        )
+    }
+
+    for (state, _) in planner.inspect_queue() {
+        let Position { x, y } = state.grid_position();
+        vis_layer.put_char_ex(
+            x as i32,
+            y as i32,
+            '.',
+            colors::DARKER_GREEN,
+            colors::DARKEST_GREEN,
+        )
+    }
+
+    for (state, _) in trajectory.trajectory.iter() {
+        let Position { x, y } = state.grid_position();
+        vis_layer.put_char_ex(
+            x as i32,
+            y as i32,
+            '+',
+            colors::LIGHT_BLUE,
+            colors::DARKEST_BLUE,
+        );
+    }
+
     vis_layer.set_key_color(colors::BLACK);
     blit(
         vis_layer,
@@ -150,6 +190,11 @@ fn main() {
     let mut monster: Option<Monster> = None;
     let mut player: Option<Position> = None;
 
+    let mut astar = AStar::<TurnOptimal>::new();
+    let mut sampler = WalkSampler::new();
+    let mut trajectory = Trajectory::<TurnOptimal>::default();
+    let mut converged = false;
+
     tcod::system::set_fps(30);
     tcod::input::show_cursor(false);
 
@@ -165,19 +210,50 @@ fn main() {
             _ => key = Default::default(),
         }
 
-        use tcod::input::KeyCode::{Backspace, Escape};
+        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape};
         match key {
             Key { code: Escape, .. } => break,
-            Key { code: Backspace, .. } => {
+            Key { code: Delete, .. } => {
+                astar = AStar::new();
+                trajectory = Default::default();
                 map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
                 monster = None;
                 player = None;
+            }
+            Key { code: Backspace, .. } => {
+                astar = AStar::new();
+                trajectory = Default::default();
+                converged = false;
+            }
+            Key { code: Enter, shift, .. } => {
+                if !converged {
+                    if let (Some(player), Some(monster)) = (&player, &monster) {
+                        let mut model = TurnOptimal::new(map);
+                        let mut goal = monster.clone();
+                        goal.pos = player.clone();
+                        let result = if shift {
+                            astar.optimize(&mut model, monster.clone(), goal, &mut sampler)
+                        } else {
+                            astar.next_trajectory(&mut model, &monster, &goal, &mut sampler)
+                        };
+                        if let PathResult::Intermediate(traj) = result {
+                            trajectory = traj;
+                        } else if let PathResult::Final(traj) = result {
+                            trajectory = traj;
+                            converged = true;
+                        }
+                        map = model.return_map();
+                    }
+                }
             }
             _ => (),
         };
 
         if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
             if mouse.lbutton && *tile == Tile::FLOOR && !overlaps_player(&player, &mouse) {
+                astar = AStar::new();
+                trajectory = Default::default();
+                converged = false;
                 monster = if let Some(mut monster) = monster {
                     monster.pos.x = mouse.cx as u32;
                     monster.pos.y = mouse.cy as u32;
@@ -188,6 +264,9 @@ fn main() {
             }
 
             if mouse.rbutton && *tile == Tile::FLOOR && !overlaps_monster(&monster, &mouse) {
+                astar = AStar::new();
+                trajectory = Default::default();
+                converged = false;
                 player = if let Some(mut player) = player {
                     player.x = mouse.cx as u32;
                     player.y = mouse.cy as u32;
@@ -199,7 +278,7 @@ fn main() {
         }
 
         draw_map(&mut root, &mut map_layer, &map);
-        draw_vis(&mut root, &mut vis_layer);
+        draw_vis(&mut root, &mut vis_layer, &astar, &trajectory);
         draw_ui(&mut root, &mut ui_layer, &map, &mouse, &player, &monster);
         root.flush();
     }

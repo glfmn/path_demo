@@ -1,6 +1,6 @@
 use super::Position;
 use crate::map::Map;
-use crate::path::State;
+use crate::path::{HeuristicModel, Model, Sampler, State};
 
 pub type ActionResult = Result<(), String>;
 
@@ -12,6 +12,7 @@ pub trait Actor {
     fn take_turn(&mut self, map: &Map) -> Box<dyn Action<Self>>;
 }
 
+#[derive(Debug, Clone)]
 pub struct Monster {
     pub pos: Position,
     mana: usize,
@@ -26,10 +27,11 @@ impl Monster {
 
 impl Actor for Monster {
     fn take_turn(&mut self, map: &Map) -> Box<dyn Action<Self>> {
-        Box::new(MovementAction::None)
+        Box::new(Movement::None)
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     North,
     NorthEast,
@@ -57,14 +59,53 @@ impl Direction {
     }
 }
 
-pub enum MovementAction {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Movement {
     Walk(Direction),
     None,
 }
 
-impl Action<Monster> for MovementAction {
+impl Default for Movement {
+    fn default() -> Self {
+        Movement::None
+    }
+}
+
+pub struct WalkSampler {
+    movements: [Movement; 9],
+}
+
+impl WalkSampler {
+    pub fn new() -> Self {
+        use Direction::*;
+        use Movement::*;
+
+        WalkSampler {
+            movements: [
+                Walk(North),
+                Walk(NorthEast),
+                Walk(East),
+                Walk(SouthEast),
+                Walk(South),
+                Walk(SouthWest),
+                Walk(West),
+                Walk(NorthWest),
+                None,
+            ],
+        }
+    }
+}
+
+impl Sampler<TurnOptimal> for WalkSampler {
+    #[inline]
+    fn sample(&mut self, _: &TurnOptimal, _: &Monster) -> &[Movement] {
+        &self.movements
+    }
+}
+
+impl Action<Monster> for Movement {
     fn execute(&self, map: &Map, actor: &mut Monster) -> ActionResult {
-        use MovementAction::*;
+        use Movement::*;
 
         match self {
             None => Ok(()),
@@ -92,5 +133,67 @@ impl State for Monster {
 
     fn grid_position(&self) -> Self::Position {
         self.pos.clone()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TurnOptimal {
+    map: Map,
+}
+
+impl TurnOptimal {
+    pub fn new(map: Map) -> Self {
+        TurnOptimal { map }
+    }
+
+    pub fn return_map(self) -> Map {
+        self.map
+    }
+}
+
+impl Model for TurnOptimal {
+    type Control = Movement;
+    type State = Monster;
+    type Cost = usize;
+
+    /// Convergence occurs adjacent to the goal, not on the goal in this case
+    fn converge(&self, current: &Self::State, goal: &Self::State) -> bool {
+        let (x, y) = (current.pos.x as i64, current.pos.y as i64);
+        let (gx, gy) = (goal.pos.x as i64, goal.pos.y as i64);
+
+        (x - gx).abs() <= 1 && (y - gy).abs() <= 1
+    }
+
+    fn integrate(
+        &self,
+        previous: &Self::State,
+        control: &Self::Control,
+    ) -> Option<Self::State> {
+        let mut next = previous.clone();
+
+        if control.execute(&self.map, &mut next).is_ok() {
+            Some(next)
+        } else {
+            None
+        }
+    }
+
+    /// Nothing to do on initialization
+    #[inline(always)]
+    fn init(&mut self, _: &Self::State) {}
+
+    #[inline(always)]
+    fn cost(&self, _current: &Self::State, _next: &Self::State) -> Self::Cost {
+        1
+    }
+}
+
+impl HeuristicModel for TurnOptimal {
+    /// Reasonable estimate for the number of turns required to reach the player
+    fn heuristic(&self, current: &Self::State, goal: &Self::State) -> Self::Cost {
+        let Position { x, y } = current.pos;
+        let Position { x: gx, y: gy } = goal.pos;
+
+        ((gx as isize - x as isize).abs() + (gy as isize - y as isize).abs()) as usize
     }
 }
