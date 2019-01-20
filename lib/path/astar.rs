@@ -1,4 +1,5 @@
 use std::cmp::{Ord, Ordering, PartialEq, PartialOrd};
+use std::collections::hash_map::Entry;
 use std::collections::{BinaryHeap, HashMap};
 use std::hash::{Hash, Hasher};
 
@@ -159,15 +160,24 @@ where
                     control: control.clone(),
                 };
 
-                let best =
-                    self.grid.entry(child.state.grid_position()).or_insert(child.id.clone());
+                let position = self.grid.entry(child.state.grid_position());
 
-                if *best < child.id {
-                    continue;
-                } else {
-                    self.parent_map.insert(child.id.clone(), current.clone());
-                    self.queue.push(child);
+                match position {
+                    Entry::Occupied(mut best) => {
+                        let best = best.get_mut();
+                        if best.g <= child.id.g {
+                            continue;
+                        } else {
+                            *best = child.id.clone();
+                        }
+                    }
+                    Entry::Vacant(empty) => {
+                        empty.insert(child.id.clone());
+                    }
                 }
+
+                self.parent_map.insert(child.id.clone(), current.clone());
+                self.queue.push(child);
             }
         }
 
