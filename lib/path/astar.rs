@@ -147,30 +147,27 @@ where
         }
 
         for control in sampler.sample(model, &current.state) {
-            if !model.is_valid(&current.state, &control) {
-                continue;
-            }
+            if let Some(child_state) = model.integrate(&current.state, &control) {
+                self.id_counter += 1;
 
-            self.id_counter += 1;
-            let child_state = model.integrate(&current.state, &control);
+                let cost = current.id.g.clone() + model.cost(&current.state, &child_state);
+                let heuristic = model.heuristic(&child_state, goal);
 
-            let cost = current.id.g.clone() + model.cost(&current.state, &child_state);
-            let heuristic = model.heuristic(&child_state, goal);
+                let child = Node::<M> {
+                    id: Id { id: self.id_counter, g: cost.clone(), f: cost + heuristic },
+                    state: child_state,
+                    control: control.clone(),
+                };
 
-            let child = Node::<M> {
-                id: Id { id: self.id_counter, g: cost.clone(), f: cost + heuristic },
-                state: child_state,
-                control: control.clone(),
-            };
+                let best =
+                    self.grid.entry(child.state.grid_position()).or_insert(child.id.clone());
 
-            let best =
-                self.grid.entry(child.state.grid_position()).or_insert(child.id.clone());
-
-            if *best < child.id {
-                continue;
-            } else {
-                self.parent_map.insert(child.id.clone(), current.clone());
-                self.queue.push(child);
+                if *best < child.id {
+                    continue;
+                } else {
+                    self.parent_map.insert(child.id.clone(), current.clone());
+                    self.queue.push(child);
+                }
             }
         }
 

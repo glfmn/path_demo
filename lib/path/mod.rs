@@ -132,11 +132,6 @@ pub trait Model: Clone {
     ///   state
     fn init(&mut self, initial: &Self::State);
 
-    /// Ensures the current state meets some form of validity check
-    ///
-    /// Can be things like not colliding with an obstacle.
-    fn is_valid(&self, current: &Self::State, control: &Self::Control) -> bool;
-
     /// Termination or convergence condition testing
     ///
     /// Test the current State against the goal to determine if it meets the
@@ -160,7 +155,15 @@ pub trait Model: Clone {
     /// For example, if we plan with position as our States, but control the system in terms of
     /// velocity, we must have a function to apply the velocity to an existing position to get
     /// the next position.
-    fn integrate(&self, previous: &Self::State, control: &Self::Control) -> Self::State;
+    ///
+    /// If the control cannot be applied to the state to produce a valid result, then return
+    /// `None`.  This allows for validation like checking to see if the action would collide with
+    /// an obstacle.
+    fn integrate(
+        &self,
+        previous: &Self::State,
+        control: &Self::Control,
+    ) -> Option<Self::State>;
 }
 
 /// Heuristic Models are models which can estimate the cost to the goal
