@@ -10,7 +10,7 @@ use game_lib::Position;
 use rand::thread_rng;
 use tcod::colors::{self, Color};
 use tcod::console::*;
-use tcod::input::{self, Event, Key};
+use tcod::input::{self, Event, Key, Mouse};
 
 /// Screen width in number of vertical columns of text
 const SCREEN_WIDTH: u32 = 100;
@@ -57,6 +57,30 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
         1f32,
         1f32,
     );
+}
+
+fn overlaps_player(player: &Option<Position>, mouse: &Mouse) -> bool {
+    if let Some(player) = player {
+        if player.x == mouse.cx as u32 && player.y == mouse.cy as u32 {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+fn overlaps_monster(monster: &Option<Monster>, mouse: &Mouse) -> bool {
+    if let Some(monster) = monster {
+        if monster.pos.x == mouse.cx as u32 && monster.pos.y == mouse.cy as u32 {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
 }
 
 fn main() {
@@ -106,7 +130,7 @@ fn main() {
                 if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::DESATURATED_FLAME };
             root.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
 
-            if mouse.lbutton && *tile == Tile::FLOOR {
+            if mouse.lbutton && *tile == Tile::FLOOR && !overlaps_player(&player, &mouse) {
                 monster = if let Some(mut monster) = monster {
                     monster.pos.x = mouse.cx as u32;
                     monster.pos.y = mouse.cy as u32;
@@ -116,7 +140,7 @@ fn main() {
                 }
             }
 
-            if mouse.rbutton && *tile == Tile::FLOOR {
+            if mouse.rbutton && *tile == Tile::FLOOR && !overlaps_monster(&monster, &mouse) {
                 player = if let Some(mut player) = player {
                     player.x = mouse.cx as u32;
                     player.y = mouse.cy as u32;
