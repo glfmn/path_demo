@@ -4,7 +4,9 @@ extern crate tcod;
 
 mod draw;
 
+use game_lib::actor::Monster;
 use game_lib::map::{generate, Map, Tile};
+use game_lib::Position;
 use rand::thread_rng;
 use tcod::colors::{self, Color};
 use tcod::console::*;
@@ -28,6 +30,9 @@ const COLOR_GROUND_BG: Color = Color { r: 28, g: 22, b: 20 };
 
 // Color of the cursor and other UI elements
 const COLOR_CURSOR: Color = Color { r: 200, g: 180, b: 50 };
+const COLOR_MONSTER: Color = Color { r: 0, g: 223, b: 252 };
+// 190,242,2
+const COLOR_PLAYER: Color = Color { r: 190, g: 242, b: 2 };
 
 fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
     map_layer.clear();
@@ -64,6 +69,9 @@ fn main() {
 
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
 
+    let mut monster: Option<Monster> = None;
+    let mut player: Option<Position> = None;
+
     tcod::system::set_fps(30);
     tcod::input::show_cursor(false);
 
@@ -82,7 +90,11 @@ fn main() {
         use tcod::input::KeyCode::{Backspace, Escape};
         match key {
             Key { code: Escape, .. } => break,
-            Key { code: Backspace, .. } => map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT),
+            Key { code: Backspace, .. } => {
+                map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
+                monster = None;
+                player = None;
+            }
             _ => (),
         };
 
@@ -93,6 +105,38 @@ fn main() {
             let color =
                 if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::DESATURATED_FLAME };
             root.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
+
+            if mouse.lbutton && *tile == Tile::FLOOR {
+                monster = if let Some(mut monster) = monster {
+                    monster.pos.x = mouse.cx as u32;
+                    monster.pos.y = mouse.cy as u32;
+                    Some(monster)
+                } else {
+                    Some(Monster::new(mouse.cx as u32, mouse.cy as u32, 100, 100))
+                }
+            }
+
+            if mouse.rbutton && *tile == Tile::FLOOR {
+                player = if let Some(mut player) = player {
+                    player.x = mouse.cx as u32;
+                    player.y = mouse.cy as u32;
+                    Some(player)
+                } else {
+                    Some(Position { x: mouse.cx as u32, y: mouse.cy as u32 })
+                }
+            }
+        }
+
+        if let Some(monster) = &monster {
+            let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
+            root.put_char(x, y, 'M', BackgroundFlag::None);
+            root.set_char_foreground(x, y, COLOR_MONSTER);
+        }
+
+        if let Some(player) = &player {
+            let (x, y) = (player.x as i32, player.y as i32);
+            root.put_char(x, y, '@', BackgroundFlag::None);
+            root.set_char_foreground(x, y, COLOR_PLAYER);
         }
 
         root.flush();
