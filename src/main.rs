@@ -4,10 +4,10 @@ extern crate tcod;
 
 mod draw;
 
-use game_lib::actor::{Monster, Movement, TurnOptimal, WalkSampler};
+use game_lib::actor::{Monster, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::AStar;
-use game_lib::path::{Model, Optimizer, PathResult, State, Trajectory};
+use game_lib::path::{Optimizer, PathResult, State, Trajectory};
 use game_lib::Position;
 use rand::thread_rng;
 use tcod::colors::{self, Color};
