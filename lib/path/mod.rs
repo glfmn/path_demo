@@ -3,47 +3,7 @@
 //! # States versus Controls
 //!
 //! A state is how the entity we plan for exists in the game space.  A control is an action we can
-//! apply to a state in order to change it.  Let's say we have a `Monster` which can take actions
-//! in our game on each turn:
-//!
-//! ```rust
-//! // Two dimensional (x,y) position in space
-//! struct Position {
-//!     x: u32,
-//!     y: u32,
-//! }
-//!
-//! impl Position { \* ... *\ }
-//!
-//! // Actions the monster can take on each turn which will effect its state in the future
-//! enum Action {
-//!     None,
-//!     // ...
-//! }
-//!
-//! impl Action {
-//!     fn execute(&self, actor: &mut Monster) -> { () }
-//! }
-//!
-//! struct Monster {
-//!     pos: Position,
-//!     mana: u8,
-//!     max_mana: u8,
-//! }
-//!
-//! impl Monster {
-//!     fn take_turn() -> Action {
-//!         // for now we aren't concerned with how the monster decides to take actions, so it will
-//!         // just do nothing in all cases.
-//!         Action::None;
-//!     }
-//! }
-//! ```
-//!
-//! The `State` is our `Monster` struct since the `Monster` struct is how our Monster exists in the
-//! game world.  However, when the monster takes a turn, it returns an `Action`.  What we want to
-//! determine is _what `Action`s to take_, so the `Action` is our [`Control`], since only by taking
-//! certain `Actions` will our Monster reach it's goal state.
+//! apply to a state in order to change it.
 //!
 //! # Using a Model
 //!
@@ -58,7 +18,10 @@
 //!
 //! Returning to the example above, we can let
 //!
-//! # Sampling
+//! # Optimizer
+//!
+//! The optimizer is actually responsible for creating the trajectory, using the model to solve the
+//! problem.
 //!
 //! [`Model`]: /path/trait.Model.html
 
