@@ -136,14 +136,49 @@ impl State for Monster {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Heuristic {
+    Manhattan,
+    Chebyshev,
+}
+
+impl Heuristic {
+    #[inline(always)]
+    pub fn calculate(&self, (cx, cy): (isize, isize), (gx, gy): (isize, isize)) -> usize {
+        use Heuristic::*;
+
+        let (dx, dy) = ((cx - gx).abs(), (cy - gy).abs());
+
+        let estimate = match self {
+            Manhattan => dx + dy,
+            Chebyshev => ((dx + dy) - 1 * dx.min(dy)),
+        };
+
+        estimate as usize
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TurnOptimal {
+    heurisitc: Heuristic,
     map: Map,
 }
 
 impl TurnOptimal {
     pub fn new(map: Map) -> Self {
-        TurnOptimal { map }
+        TurnOptimal { map, heurisitc: Heuristic::Manhattan }
+    }
+
+    pub fn set_heuristic(&mut self, heuristic: Heuristic) {
+        self.heurisitc = heuristic
+    }
+
+    pub fn use_chebyshev(&mut self) {
+        self.heurisitc = Heuristic::Chebyshev
+    }
+
+    pub fn use_manhattan(&mut self) {
+        self.heurisitc = Heuristic::Manhattan
     }
 
     pub fn return_map(self) -> Map {
@@ -191,9 +226,6 @@ impl Model for TurnOptimal {
 impl HeuristicModel for TurnOptimal {
     /// Reasonable estimate for the number of turns required to reach the player
     fn heuristic(&self, current: &Self::State, goal: &Self::State) -> Self::Cost {
-        let Position { x, y } = current.pos;
-        let Position { x: gx, y: gy } = goal.pos;
-
-        ((gx as isize - x as isize).abs() + (gy as isize - y as isize).abs()) as usize
+        self.heurisitc.calculate(current.pos.clone().into(), goal.pos.clone().into())
     }
 }
