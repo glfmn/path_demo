@@ -1,5 +1,9 @@
 [package]
 name = "path_demo"
+description = "A demo of advanced A*-based video game pathfinding"
+license = "MPL-2.0"
+homepage = "https://github.com/glfmn/path_demo"
+repository = "https://github.com/glfmn/path_demo"
 version = "0.1.1"
 authors = ["Gwen Lofman <Gwen@Lofman.io>"]
 edition = "2018"
