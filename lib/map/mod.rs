@@ -68,6 +68,7 @@ impl Map {
     }
 
     /// Convert two values from a subscript into an index to the tile vector
+    #[inline(always)]
     fn sub2ind(&self, x: u32, y: u32) -> usize {
         x as usize + y as usize * self.width as usize
     }

@@ -1,8 +1,10 @@
 pub mod actor;
-pub mod item;
 pub mod map;
+pub mod path;
 
+/// An (x,y) position in the game world
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Position {
-    x: usize,
-    y: usize,
+    pub x: u32,
+    pub y: u32,
 }
