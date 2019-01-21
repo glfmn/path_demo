@@ -4,12 +4,14 @@ extern crate tcod;
 
 mod draw;
 
-use game_lib::actor::{Monster, TurnOptimal, WalkSampler};
+use game_lib::actor::{Actor, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::AStar;
 use game_lib::path::{Optimizer, PathResult, State, Trajectory};
 use game_lib::Position;
+
 use rand::thread_rng;
+
 use tcod::colors::{self, Color};
 use tcod::console::*;
 use tcod::input::{self, Event, Key, Mouse};
@@ -119,7 +121,7 @@ fn draw_ui(
     map: &Map,
     mouse: &Mouse,
     player: &Option<Position>,
-    monster: &Option<Monster>,
+    monster: &Option<Actor>,
 ) {
     ui_layer.clear();
     if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
@@ -163,7 +165,7 @@ fn overlaps_player(player: &Option<Position>, mouse: &Mouse) -> bool {
     }
 }
 
-fn overlaps_monster(monster: &Option<Monster>, mouse: &Mouse) -> bool {
+fn overlaps_monster(monster: &Option<Actor>, mouse: &Mouse) -> bool {
     if let Some(monster) = monster {
         if monster.pos.x == mouse.cx as u32 && monster.pos.y == mouse.cy as u32 {
             true
@@ -187,7 +189,7 @@ fn main() {
     let mut vis_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
     let mut ui_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
 
-    let mut monster: Option<Monster> = None;
+    let mut monster: Option<Actor> = None;
     let mut player: Option<Position> = None;
 
     let mut astar = AStar::<TurnOptimal>::new();
@@ -259,7 +261,7 @@ fn main() {
                     monster.pos.y = mouse.cy as u32;
                     Some(monster)
                 } else {
-                    Some(Monster::new(mouse.cx as u32, mouse.cy as u32, 100, 100))
+                    Some(Actor::new(mouse.cx as u32, mouse.cy as u32, 100, 100))
                 }
             }
 

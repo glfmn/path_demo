@@ -1,33 +1,70 @@
 use super::Position;
 use crate::map::Map;
-use crate::path::{HeuristicModel, Model, Sampler, State};
+use crate::path::{self, HeuristicModel, Model, Optimizer, PathResult, Sampler, State};
 
 pub type ActionResult = Result<(), String>;
 
-pub trait Action<A: Actor> {
-    fn execute(&self, map: &Map, actor: &mut A) -> ActionResult;
-}
-
-pub trait Actor {
-    fn take_turn(&mut self, map: &Map) -> Box<dyn Action<Self>>;
+pub trait Action {
+    fn execute(&self, map: &Map, actor: &mut Actor) -> ActionResult;
 }
 
 #[derive(Debug, Clone)]
-pub struct Monster {
+pub struct Actor {
     pub pos: Position,
     mana: usize,
     max_mana: usize,
 }
 
-impl Monster {
-    pub fn new(x: u32, y: u32, mana: usize, max_mana: usize) -> Self {
-        Monster { pos: Position { x, y }, mana, max_mana }
+pub enum Goal {
+    GoTo(Position),
+    Do(Box<dyn Action>),
+    None,
+}
+
+impl Goal {
+    pub fn new() -> Self {
+        Goal::None
+    }
+
+    pub fn go_to<P>(goal: P) -> Self
+    where
+        P: Into<Position>,
+    {
+        Goal::GoTo(goal.into())
     }
 }
 
-impl Actor for Monster {
-    fn take_turn(&mut self, map: &Map) -> Box<dyn Action<Self>> {
-        Box::new(Movement::None)
+impl Actor {
+    pub fn new(x: u32, y: u32, mana: usize, max_mana: usize) -> Self {
+        Actor { pos: Position { x, y }, mana, max_mana }
+    }
+
+    pub fn take_turn(&mut self, goal: Goal, map: &Map) -> Box<dyn Action> {
+        let map = map.clone();
+
+        match goal {
+            Goal::GoTo(position) => {
+                // Create a goal to go to the defined position
+                let mut goal = self.clone();
+                goal.pos = position;
+                let mut planner = path::astar::AStar::new();
+                let mut walker = WalkSampler::new();
+                let mut model = TurnOptimal::new(map);
+                let trajectory = planner.optimize(&mut model, self.clone(), goal, &mut walker);
+
+                if let PathResult::Final(trajectory) = trajectory {
+                    if let Some((_, action)) = trajectory.trajectory.first() {
+                        Box::new(action.clone())
+                    } else {
+                        Box::new(Movement::None)
+                    }
+                } else {
+                    Box::new(Movement::None)
+                }
+            }
+            Goal::Do(action) => action,
+            Goal::None => Box::new(Movement::None),
+        }
     }
 }
 
@@ -98,13 +135,13 @@ impl WalkSampler {
 
 impl Sampler<TurnOptimal> for WalkSampler {
     #[inline]
-    fn sample(&mut self, _: &TurnOptimal, _: &Monster) -> &[Movement] {
+    fn sample(&mut self, _: &TurnOptimal, _: &Actor) -> &[Movement] {
         &self.movements
     }
 }
 
-impl Action<Monster> for Movement {
-    fn execute(&self, map: &Map, actor: &mut Monster) -> ActionResult {
+impl Action for Movement {
+    fn execute(&self, map: &Map, actor: &mut Actor) -> ActionResult {
         use Movement::*;
 
         match self {
@@ -128,7 +165,7 @@ impl Action<Monster> for Movement {
     }
 }
 
-impl State for Monster {
+impl State for Actor {
     type Position = Position;
 
     fn grid_position(&self) -> Self::Position {
@@ -188,7 +225,7 @@ impl TurnOptimal {
 
 impl Model for TurnOptimal {
     type Control = Movement;
-    type State = Monster;
+    type State = Actor;
     type Cost = usize;
 
     /// Convergence occurs adjacent to the goal, not on the goal in this case
