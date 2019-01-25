@@ -4,7 +4,7 @@ extern crate tcod;
 
 mod draw;
 
-use game_lib::actor::{Actor, TurnOptimal, WalkSampler};
+use game_lib::actor::{Actor, TurnOptimal, WalkSampler, Heuristic};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::AStar;
 use game_lib::path::{Optimizer, PathResult, State, Trajectory};
@@ -196,6 +196,7 @@ fn main() {
     let mut sampler = WalkSampler::new();
     let mut trajectory = Trajectory::<TurnOptimal>::default();
     let mut converged = false;
+    let mut heuristic = Heuristic::Manhattan;
 
     tcod::system::set_fps(30);
     tcod::input::show_cursor(false);
@@ -212,7 +213,7 @@ fn main() {
             _ => key = Default::default(),
         }
 
-        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape};
+        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape, F1};
         match key {
             Key { code: Escape, .. } => break,
             Key { code: Delete, .. } => {
@@ -231,6 +232,7 @@ fn main() {
                 if !converged {
                     if let (Some(player), Some(monster)) = (&player, &monster) {
                         let mut model = TurnOptimal::new(map);
+                        model.set_heuristic(heuristic.clone());
                         let mut goal = monster.clone();
                         goal.pos = player.clone();
                         let result = if shift {
@@ -248,33 +250,42 @@ fn main() {
                     }
                 }
             }
+            Key { code: F1, .. } => {
+                match &heuristic {
+                    &Heuristic::Chebyshev => heuristic = Heuristic::Manhattan,
+                    &Heuristic::Manhattan => heuristic = Heuristic::Chebyshev,
+                }
+                println!("Selected {:?} heuristic", heuristic);
+            }
             _ => (),
         };
 
         if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
-            if mouse.lbutton && *tile == Tile::FLOOR && !overlaps_player(&player, &mouse) {
-                astar = AStar::new();
-                trajectory = Default::default();
-                converged = false;
-                monster = if let Some(mut monster) = monster {
-                    monster.pos.x = mouse.cx as u32;
-                    monster.pos.y = mouse.cy as u32;
-                    Some(monster)
-                } else {
-                    Some(Actor::new(mouse.cx as u32, mouse.cy as u32, 100, 100))
+            if *tile == Tile::FLOOR {
+                if mouse.lbutton && !overlaps_player(&player, &mouse) {
+                    astar = AStar::new();
+                    trajectory = Default::default();
+                    converged = false;
+                    monster = if let Some(mut monster) = monster {
+                        monster.pos.x = mouse.cx as u32;
+                        monster.pos.y = mouse.cy as u32;
+                        Some(monster)
+                    } else {
+                        Some(Actor::new(mouse.cx as u32, mouse.cy as u32, 100, 100))
+                    }
                 }
-            }
 
-            if mouse.rbutton && *tile == Tile::FLOOR && !overlaps_monster(&monster, &mouse) {
-                astar = AStar::new();
-                trajectory = Default::default();
-                converged = false;
-                player = if let Some(mut player) = player {
-                    player.x = mouse.cx as u32;
-                    player.y = mouse.cy as u32;
-                    Some(player)
-                } else {
-                    Some(Position { x: mouse.cx as u32, y: mouse.cy as u32 })
+                if mouse.rbutton && !overlaps_monster(&monster, &mouse) {
+                    astar = AStar::new();
+                    trajectory = Default::default();
+                    converged = false;
+                    player = if let Some(mut player) = player {
+                        player.x = mouse.cx as u32;
+                        player.y = mouse.cy as u32;
+                        Some(player)
+                    } else {
+                        Some(Position { x: mouse.cx as u32, y: mouse.cy as u32 })
+                    }
                 }
             }
         }

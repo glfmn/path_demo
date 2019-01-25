@@ -188,10 +188,10 @@ impl Heuristic {
 
         let estimate = match self {
             Manhattan => dx + dy,
-            Chebyshev => ((dx + dy) - 1 * dx.min(dy)),
+            Chebyshev => (dx + dy) - 1 * dx.min(dy),
         };
 
-        estimate as usize
+        (estimate + 1) as usize
     }
 }
 
