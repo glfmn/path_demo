@@ -185,6 +185,16 @@ fn main() {
         .title("Pathfinding")
         .init();
 
+    println!("\nVisulaizaiton controls:\n");
+    println!("   ESC - quit");
+    println!("   LEFT CLICK - place monster");
+    println!("   RIGHT CLICK - place player/goal");
+    println!("   ENTER - step forward once in path-finding");
+    println!("   SHIFT + ENTER - plan all the way to the goal");
+    println!("   BACKSPACE - restart planning");
+    println!("   DELETE - generate a new map");
+    println!("   F1 - toggle heuristic functions");
+
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
     let mut vis_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
     let mut ui_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
