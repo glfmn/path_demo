@@ -24,7 +24,9 @@ const SCREEN_HEIGHT: u32 = 80;
 
 // Have the map consume the space not consumed by the GUI
 const MAP_WIDTH: u32 = SCREEN_WIDTH;
-const MAP_HEIGHT: u32 = SCREEN_HEIGHT;
+const MAP_HEIGHT: u32 = SCREEN_HEIGHT - 10;
+
+const COLOR_CANVAS_BG: Color = Color { r: 94, g: 86, b: 76 };
 
 // Color of map tiles
 const COLOR_WALL_BG: Color = Color { r: 209, g: 178, b: 138 };
@@ -44,7 +46,7 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
             let (char, fg_color, bg_color) = if map[(x, y)].is_wall() {
                 let count = map.count_adjacent(x, y, 1, |tile| !tile.is_wall());
                 if count == 0 {
-                    (176 as char, COLOR_WALL_FG, colors::BLACK)
+                    (' ', COLOR_CANVAS_BG, COLOR_CANVAS_BG)
                 } else {
                     ('#', COLOR_WALL_FG, COLOR_WALL_BG)
                 }
@@ -55,15 +57,7 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
         }
     }
 
-    blit(
-        map_layer,
-        (0, 0),
-        (SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32),
-        root,
-        (0, 0),
-        1f32,
-        1f32,
-    );
+    blit(map_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, (0, 0), 1f32, 1f32);
 }
 
 fn draw_vis(
@@ -89,15 +83,7 @@ fn draw_vis(
     }
 
     vis_layer.set_key_color(colors::BLACK);
-    blit(
-        vis_layer,
-        (0, 0),
-        (SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32),
-        root,
-        (0, 0),
-        1f32,
-        1f32,
-    );
+    blit(vis_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, (0, 0), 1f32, 1f32);
 }
 
 fn draw_ui(
@@ -109,11 +95,17 @@ fn draw_ui(
     monster: &Option<Actor>,
 ) {
     ui_layer.clear();
-    if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
-        ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::Screen);
-        let color = if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::WHITE };
-        ui_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
-    }
+    let color = if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
+        if *tile == Tile::FLOOR {
+            COLOR_CURSOR
+        } else {
+            colors::WHITE
+        }
+    } else {
+        colors::WHITE
+    };
+    ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::Screen);
+    ui_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
 
     if let Some(monster) = &monster {
         let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
@@ -126,6 +118,7 @@ fn draw_ui(
         ui_layer.put_char(x, y, '@', BackgroundFlag::None);
         ui_layer.set_char_foreground(x, y, COLOR_PLAYER);
     }
+
     blit(
         ui_layer,
         (0, 0),
@@ -291,6 +284,7 @@ fn main() {
         }
 
         root.clear();
+        root.set_default_background(COLOR_CANVAS_BG);
         if render_map {
             draw_map(&mut root, &mut map_layer, &map);
         }
