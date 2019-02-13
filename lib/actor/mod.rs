@@ -2,6 +2,8 @@ use super::Position;
 use crate::map::Map;
 use crate::path::{self, HeuristicModel, Model, Optimizer, PathResult, Sampler, State};
 
+use std::fmt::{self, Display};
+
 pub type ActionResult = Result<(), String>;
 
 pub trait Action {
@@ -194,6 +196,16 @@ impl Heuristic {
         };
 
         estimate as usize
+    }
+}
+
+impl Display for Heuristic {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Heuristic::Manhattan => write!(f, "Manhattan"),
+            Heuristic::TieBreaker => write!(f, "Tie-Breaker"),
+            Heuristic::Chebyshev => write!(f, "Chebyshev"),
+        }
     }
 }
 

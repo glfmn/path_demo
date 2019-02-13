@@ -121,8 +121,16 @@ fn draw_agents(
     );
 }
 
-fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, map: &Map, mouse: &Mouse) {
+fn draw_ui(
+    root: &mut Root,
+    ui_layer: &mut Offscreen,
+    map: &Map,
+    mouse: &Mouse,
+    header: &String,
+) {
+    use tcod::console::TextAlignment;
     ui_layer.clear();
+    ui_layer.set_default_foreground(COLOR_GROUND_FG);
     let color = if mouse.cy >= MAP_AREA.1 as isize {
         if let Some(tile) = map.get(
             (mouse.cx - MAP_AREA.0 as isize) as u32,
@@ -141,6 +149,9 @@ fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, map: &Map, mouse: &Mouse) 
     };
     ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::Screen);
     ui_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
+    ui_layer.set_alignment(TextAlignment::Center);
+    ui_layer.print((SCREEN_WIDTH / 2) as i32, 0, header);
+    ui_layer.set_alignment(TextAlignment::Left);
     blit(
         ui_layer,
         (0, 0),
@@ -300,13 +311,19 @@ fn main() {
             }
         }
 
+        let header = if player.is_none() || monster.is_none() {
+            "L-Click to place a monster R-Click to place a goal".into()
+        } else {
+            format!("Trajectory of cost {} with {} heuristic", trajectory.cost, heuristic)
+        };
+
         root.clear();
         root.set_default_background(COLOR_CANVAS_BG);
         if render_map {
             draw_map(&mut root, &mut map_layer, &map);
         }
         draw_vis(&mut root, &mut vis_layer, &astar, &trajectory);
-        draw_ui(&mut root, &mut ui_layer, &map, &mouse);
+        draw_ui(&mut root, &mut ui_layer, &map, &mouse, &header);
         draw_agents(&mut root, &mut agent_layer, &player, &monster);
         root.flush();
     }
