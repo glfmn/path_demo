@@ -177,6 +177,7 @@ impl State for Actor {
 pub enum Heuristic {
     Manhattan,
     Chebyshev,
+    TieBreaker,
 }
 
 impl Heuristic {
@@ -188,10 +189,11 @@ impl Heuristic {
 
         let estimate = match self {
             Manhattan => dx + dy,
+            TieBreaker => dx + dy + 10,
             Chebyshev => (dx + dy) - 1 * dx.min(dy),
         };
 
-        (estimate + 1) as usize
+        estimate as usize
     }
 }
 

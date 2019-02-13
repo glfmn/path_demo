@@ -4,7 +4,7 @@ extern crate tcod;
 
 mod draw;
 
-use game_lib::actor::{Actor, TurnOptimal, WalkSampler, Heuristic};
+use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::AStar;
 use game_lib::path::{Optimizer, PathResult, State, Trajectory};
@@ -265,7 +265,8 @@ fn main() {
             Key { code: F1, .. } => {
                 match &heuristic {
                     &Heuristic::Chebyshev => heuristic = Heuristic::Manhattan,
-                    &Heuristic::Manhattan => heuristic = Heuristic::Chebyshev,
+                    &Heuristic::Manhattan => heuristic = Heuristic::TieBreaker,
+                    &Heuristic::TieBreaker => heuristic = Heuristic::Chebyshev,
                 }
                 println!("Selected {:?} heuristic", heuristic);
             }
