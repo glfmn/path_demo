@@ -179,7 +179,7 @@ impl State for Actor {
 pub enum Heuristic {
     Manhattan,
     Chebyshev,
-    TieBreaker,
+    DoubleManhattan,
 }
 
 impl Heuristic {
@@ -191,7 +191,7 @@ impl Heuristic {
 
         let estimate = match self {
             Manhattan => dx + dy,
-            TieBreaker => dx + dy + 10,
+            DoubleManhattan => 2 * (dx + dy),
             Chebyshev => (dx + dy) - 1 * dx.min(dy),
         };
 
@@ -203,7 +203,7 @@ impl Display for Heuristic {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Heuristic::Manhattan => write!(f, "Manhattan"),
-            Heuristic::TieBreaker => write!(f, "Tie-Breaker"),
+            Heuristic::DoubleManhattan => write!(f, "Doubled-Manhattan"),
             Heuristic::Chebyshev => write!(f, "Chebyshev"),
         }
     }

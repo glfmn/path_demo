@@ -262,10 +262,13 @@ fn main() {
                 }
             }
             Key { code: F1, .. } => {
+                astar = AStar::new();
+                trajectory = Default::default();
+                converged = false;
                 match &heuristic {
                     &Heuristic::Chebyshev => heuristic = Heuristic::Manhattan,
-                    &Heuristic::Manhattan => heuristic = Heuristic::TieBreaker,
-                    &Heuristic::TieBreaker => heuristic = Heuristic::Chebyshev,
+                    &Heuristic::Manhattan => heuristic = Heuristic::DoubleManhattan,
+                    &Heuristic::DoubleManhattan => heuristic = Heuristic::Chebyshev,
                 }
                 println!("Selected {:?} heuristic", heuristic);
             }
