@@ -213,6 +213,7 @@ fn main() {
 
     let mut map_rng = thread_rng();
     let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
+    let mut render_map = true;
 
     let mut mouse = Default::default();
     let mut key = Default::default();
@@ -223,13 +224,14 @@ fn main() {
             _ => key = Default::default(),
         }
 
-        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape, F1};
+        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape, F1, F2};
         match key {
             Key { code: Escape, .. } => break,
             Key { code: Delete, .. } => {
                 astar = AStar::new();
                 trajectory = Default::default();
                 map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
+                render_map = true;
                 monster = None;
                 player = None;
             }
@@ -267,6 +269,9 @@ fn main() {
                 }
                 println!("Selected {:?} heuristic", heuristic);
             }
+            Key { code: F2, .. } => {
+                render_map = !render_map;
+            }
             _ => (),
         };
 
@@ -300,7 +305,10 @@ fn main() {
             }
         }
 
-        draw_map(&mut root, &mut map_layer, &map);
+        root.clear();
+        if render_map {
+            draw_map(&mut root, &mut map_layer, &map);
+        }
         draw_vis(&mut root, &mut vis_layer, &astar, &trajectory);
         draw_ui(&mut root, &mut ui_layer, &map, &mouse, &player, &monster);
         root.flush();
