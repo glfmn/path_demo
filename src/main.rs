@@ -22,9 +22,13 @@ const SCREEN_WIDTH: u32 = 120;
 /// Screen height in number of horizontal rows of text
 const SCREEN_HEIGHT: u32 = 80;
 
+const TOP_BAR_HEIGHT: u32 = 2;
+const PANEL_HEIGHT: u32 = 10;
+
 // Have the map consume the space not consumed by the GUI
 const MAP_WIDTH: u32 = SCREEN_WIDTH;
-const MAP_HEIGHT: u32 = SCREEN_HEIGHT - 10;
+const MAP_HEIGHT: u32 = SCREEN_HEIGHT - TOP_BAR_HEIGHT - PANEL_HEIGHT;
+const MAP_AREA: (i32, i32) = (0, TOP_BAR_HEIGHT as i32);
 
 const COLOR_CANVAS_BG: Color = Color { r: 94, g: 86, b: 76 };
 
@@ -35,7 +39,7 @@ const COLOR_GROUND_FG: Color = Color { r: 254, g: 241, b: 224 };
 const COLOR_GROUND_BG: Color = Color { r: 246, g: 230, b: 206 };
 
 // Color of the cursor and other UI elements
-const COLOR_CURSOR: Color = colors::BLACK;
+const COLOR_CURSOR: Color = colors::DARK_GREEN;
 const COLOR_MONSTER: Color = Color { r: 44, g: 200, b: 247 };
 const COLOR_PLAYER: Color = Color { r: 188, g: 7, b: 98 };
 
@@ -57,7 +61,7 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
         }
     }
 
-    blit(map_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, (0, 0), 1f32, 1f32);
+    blit(map_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, MAP_AREA, 1f32, 1f32);
 }
 
 fn draw_vis(
@@ -83,21 +87,52 @@ fn draw_vis(
     }
 
     vis_layer.set_key_color(colors::BLACK);
-    blit(vis_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, (0, 0), 1f32, 1f32);
+    blit(vis_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, MAP_AREA, 1f32, 1f32);
 }
 
-fn draw_ui(
+fn draw_agents(
     root: &mut Root,
-    ui_layer: &mut Offscreen,
-    map: &Map,
-    mouse: &Mouse,
+    agent_layer: &mut Offscreen,
     player: &Option<Position>,
     monster: &Option<Actor>,
 ) {
+    agent_layer.clear();
+
+    if let Some(monster) = &monster {
+        let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
+        agent_layer.put_char(x, y, 'M', BackgroundFlag::None);
+        agent_layer.set_char_foreground(x, y, COLOR_MONSTER);
+    }
+
+    if let Some(player) = &player {
+        let (x, y) = (player.x as i32, player.y as i32);
+        agent_layer.put_char(x, y, '@', BackgroundFlag::None);
+        agent_layer.set_char_foreground(x, y, COLOR_PLAYER);
+    }
+
+    blit(
+        agent_layer,
+        (0, 0),
+        (MAP_WIDTH as i32, MAP_HEIGHT as i32),
+        root,
+        MAP_AREA,
+        1f32,
+        0f32,
+    );
+}
+
+fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, map: &Map, mouse: &Mouse) {
     ui_layer.clear();
-    let color = if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
-        if *tile == Tile::FLOOR {
-            COLOR_CURSOR
+    let color = if mouse.cy >= MAP_AREA.1 as isize {
+        if let Some(tile) = map.get(
+            (mouse.cx - MAP_AREA.0 as isize) as u32,
+            (mouse.cy - MAP_AREA.1 as isize) as u32,
+        ) {
+            if *tile == Tile::FLOOR {
+                COLOR_CURSOR
+            } else {
+                colors::RED
+            }
         } else {
             colors::WHITE
         }
@@ -106,19 +141,6 @@ fn draw_ui(
     };
     ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::Screen);
     ui_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
-
-    if let Some(monster) = &monster {
-        let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
-        ui_layer.put_char(x, y, 'M', BackgroundFlag::None);
-        ui_layer.set_char_foreground(x, y, COLOR_MONSTER);
-    }
-
-    if let Some(player) = &player {
-        let (x, y) = (player.x as i32, player.y as i32);
-        ui_layer.put_char(x, y, '@', BackgroundFlag::None);
-        ui_layer.set_char_foreground(x, y, COLOR_PLAYER);
-    }
-
     blit(
         ui_layer,
         (0, 0),
@@ -130,21 +152,9 @@ fn draw_ui(
     );
 }
 
-fn overlaps_player(player: &Option<Position>, mouse: &Mouse) -> bool {
+fn overlaps_position(player: &Option<Position>, mouse: &Position) -> bool {
     if let Some(player) = player {
-        if player.x == mouse.cx as u32 && player.y == mouse.cy as u32 {
-            true
-        } else {
-            false
-        }
-    } else {
-        false
-    }
-}
-
-fn overlaps_monster(monster: &Option<Actor>, mouse: &Mouse) -> bool {
-    if let Some(monster) = monster {
-        if monster.pos.x == mouse.cx as u32 && monster.pos.y == mouse.cy as u32 {
+        if player.x == mouse.x && player.y == mouse.y {
             true
         } else {
             false
@@ -174,7 +184,8 @@ fn main() {
 
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
     let mut vis_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
-    let mut ui_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
+    let mut agent_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
+    let mut ui_layer = Offscreen::new(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32);
 
     let mut monster: Option<Actor> = None;
     let mut player: Option<Position> = None;
@@ -253,31 +264,37 @@ fn main() {
             _ => (),
         };
 
-        if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
+        let mouse_pos = Position::new(
+            (mouse.cx - MAP_AREA.0 as isize) as u32,
+            (mouse.cy - MAP_AREA.1 as isize) as u32,
+        );
+        if let Some(tile) = map.get(mouse_pos.x, mouse_pos.y) {
             if *tile == Tile::FLOOR {
-                if mouse.lbutton && !overlaps_player(&player, &mouse) {
+                if mouse.lbutton && !overlaps_position(&player, &mouse_pos) {
                     astar = AStar::new();
                     trajectory = Default::default();
                     converged = false;
                     monster = if let Some(mut monster) = monster {
-                        monster.pos.x = mouse.cx as u32;
-                        monster.pos.y = mouse.cy as u32;
+                        monster.pos.x = mouse_pos.x;
+                        monster.pos.y = mouse_pos.y;
                         Some(monster)
                     } else {
-                        Some(Actor::new(mouse.cx as u32, mouse.cy as u32, 100, 100))
+                        Some(Actor::new(mouse_pos.x, mouse_pos.y, 100, 100))
                     }
                 }
 
-                if mouse.rbutton && !overlaps_monster(&monster, &mouse) {
+                if mouse.rbutton
+                    && !overlaps_position(&monster.clone().map(|m| m.pos), &mouse_pos)
+                {
                     astar = AStar::new();
                     trajectory = Default::default();
                     converged = false;
                     player = if let Some(mut player) = player {
                         player.x = mouse.cx as u32;
-                        player.y = mouse.cy as u32;
+                        player.y = mouse_pos.y;
                         Some(player)
                     } else {
-                        Some(Position { x: mouse.cx as u32, y: mouse.cy as u32 })
+                        Some(Position { x: mouse_pos.x, y: mouse_pos.y })
                     }
                 }
             }
@@ -289,7 +306,8 @@ fn main() {
             draw_map(&mut root, &mut map_layer, &map);
         }
         draw_vis(&mut root, &mut vis_layer, &astar, &trajectory);
-        draw_ui(&mut root, &mut ui_layer, &map, &mouse, &player, &monster);
+        draw_ui(&mut root, &mut ui_layer, &map, &mouse);
+        draw_agents(&mut root, &mut agent_layer, &player, &monster);
         root.flush();
     }
 }
