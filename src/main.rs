@@ -27,16 +27,15 @@ const MAP_WIDTH: u32 = SCREEN_WIDTH;
 const MAP_HEIGHT: u32 = SCREEN_HEIGHT;
 
 // Color of map tiles
-const COLOR_WALL_FG: Color = Color { r: 198, g: 197, b: 195 };
-const COLOR_WALL_BG: Color = Color { r: 142, g: 139, b: 138 };
-const COLOR_GROUND_FG: Color = Color { r: 85, g: 81, b: 79 };
-const COLOR_GROUND_BG: Color = Color { r: 28, g: 22, b: 20 };
+const COLOR_WALL_BG: Color = Color { r: 209, g: 178, b: 138 };
+const COLOR_WALL_FG: Color = Color { r: 130, g: 118, b: 101 };
+const COLOR_GROUND_FG: Color = Color { r: 254, g: 241, b: 224 };
+const COLOR_GROUND_BG: Color = Color { r: 246, g: 230, b: 206 };
 
 // Color of the cursor and other UI elements
-const COLOR_CURSOR: Color = Color { r: 200, g: 180, b: 50 };
-const COLOR_MONSTER: Color = Color { r: 0, g: 223, b: 252 };
-// 190,242,2
-const COLOR_PLAYER: Color = Color { r: 190, g: 242, b: 2 };
+const COLOR_CURSOR: Color = colors::BLACK;
+const COLOR_MONSTER: Color = Color { r: 44, g: 200, b: 247 };
+const COLOR_PLAYER: Color = Color { r: 188, g: 7, b: 98 };
 
 fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
     map_layer.clear();
@@ -44,7 +43,11 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
         for x in 0..MAP_WIDTH {
             let (char, fg_color, bg_color) = if map[(x, y)].is_wall() {
                 let count = map.count_adjacent(x, y, 1, |tile| !tile.is_wall());
-                (if count == 0 { ' ' } else { '#' }, COLOR_WALL_FG, COLOR_WALL_BG)
+                if count == 0 {
+                    (176 as char, COLOR_WALL_FG, colors::BLACK)
+                } else {
+                    ('#', COLOR_WALL_FG, COLOR_WALL_BG)
+                }
             } else {
                 ('.', COLOR_GROUND_FG, COLOR_GROUND_BG)
             };
@@ -72,35 +75,17 @@ fn draw_vis(
     vis_layer.clear();
 
     for Position { x, y } in planner.inspect_discovered() {
-        vis_layer.put_char_ex(
-            *x as i32,
-            *y as i32,
-            '.',
-            colors::DARKER_RED,
-            colors::DARKEST_RED,
-        )
+        vis_layer.put_char_ex(*x as i32, *y as i32, 177 as char, colors::RED, COLOR_GROUND_BG);
     }
 
     for (state, _) in planner.inspect_queue() {
         let Position { x, y } = state.grid_position();
-        vis_layer.put_char_ex(
-            x as i32,
-            y as i32,
-            '.',
-            colors::DARKER_GREEN,
-            colors::DARKEST_GREEN,
-        )
+        vis_layer.put_char_ex(x as i32, y as i32, 178 as char, colors::GREEN, COLOR_GROUND_BG);
     }
 
     for (state, _) in trajectory.trajectory.iter() {
         let Position { x, y } = state.grid_position();
-        vis_layer.put_char_ex(
-            x as i32,
-            y as i32,
-            '+',
-            colors::LIGHT_BLUE,
-            colors::DARKEST_BLUE,
-        );
+        vis_layer.put_char_ex(x as i32, y as i32, '+', colors::LIGHT_SKY, colors::BLUE);
     }
 
     vis_layer.set_key_color(colors::BLACK);
@@ -125,9 +110,8 @@ fn draw_ui(
 ) {
     ui_layer.clear();
     if let Some(tile) = map.get(mouse.cx as u32, mouse.cy as u32) {
-        ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::None);
-        let color =
-            if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::DESATURATED_FLAME };
+        ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::Screen);
+        let color = if *tile == Tile::FLOOR { COLOR_CURSOR } else { colors::WHITE };
         ui_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
     }
 
