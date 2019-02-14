@@ -98,16 +98,20 @@ fn draw_agents(
 ) {
     agent_layer.clear();
 
-    if let Some(monster) = &monster {
-        let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
-        agent_layer.put_char(x, y, 'M', BackgroundFlag::None);
-        agent_layer.set_char_foreground(x, y, COLOR_MONSTER);
-    }
-
     if let Some(player) = &player {
         let (x, y) = (player.x as i32, player.y as i32);
+        agent_layer.set_default_foreground(COLOR_PLAYER);
         agent_layer.put_char(x, y, '@', BackgroundFlag::None);
-        agent_layer.set_char_foreground(x, y, COLOR_PLAYER);
+        agent_layer.horizontal_line(x + 1, y, 1, BackgroundFlag::Add);
+        agent_layer.horizontal_line(x - 1, y, 1, BackgroundFlag::Add);
+        agent_layer.vertical_line(x, y - 1, 1, BackgroundFlag::Add);
+        agent_layer.vertical_line(x, y + 1, 1, BackgroundFlag::Add);
+    }
+
+    if let Some(monster) = &monster {
+        let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
+        agent_layer.set_default_foreground(COLOR_MONSTER);
+        agent_layer.put_char(x, y, 'M', BackgroundFlag::None);
     }
 
     blit(
