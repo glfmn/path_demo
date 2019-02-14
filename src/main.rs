@@ -2,6 +2,12 @@ extern crate game_lib;
 extern crate rand;
 extern crate tcod;
 
+#[macro_use]
+extern crate slog;
+extern crate slog_term;
+
+use slog::{Drain, Logger};
+
 mod draw;
 
 use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
@@ -187,6 +193,13 @@ fn main() {
         .title("Pathfinding")
         .init();
 
+    let mut map_rng = thread_rng();
+
+    let term = slog_term::TermDecorator::new().force_color().build();
+    let decorator = slog_term::CompactFormat::new(term).build();
+    let drain = std::sync::Mutex::new(decorator).fuse();
+    let logger = Logger::root(drain, o!());
+
     println!("\nVisulaizaiton controls:\n");
     println!("   ESC - quit");
     println!("   LEFT CLICK - place monster");
@@ -196,6 +209,8 @@ fn main() {
     println!("   BACKSPACE - restart planning");
     println!("   DELETE - generate a new map");
     println!("   F1 - toggle heuristic functions");
+
+    info!(logger, "Starting vis");
 
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
     let mut vis_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
@@ -214,7 +229,6 @@ fn main() {
     tcod::system::set_fps(30);
     tcod::input::show_cursor(false);
 
-    let mut map_rng = thread_rng();
     let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
     let mut render_map = true;
 
@@ -237,6 +251,7 @@ fn main() {
                 render_map = true;
                 monster = None;
                 player = None;
+                info!(logger, "New map generated");
             }
             Key { code: Backspace, .. } => {
                 astar = AStar::new();
@@ -260,6 +275,12 @@ fn main() {
                         } else if let PathResult::Final(traj) = result {
                             trajectory = traj;
                             converged = true;
+                            info!(
+                                logger,
+                                "Converged";
+                                "heuristic" => format!("{}", heuristic),
+                                "cost" => trajectory.cost,
+                            );
                         }
                         map = model.return_map();
                     }
@@ -274,7 +295,6 @@ fn main() {
                     &Heuristic::Manhattan => heuristic = Heuristic::DoubleManhattan,
                     &Heuristic::DoubleManhattan => heuristic = Heuristic::Chebyshev,
                 }
-                println!("Selected {:?} heuristic", heuristic);
             }
             Key { code: F2, .. } => {
                 render_map = !render_map;
