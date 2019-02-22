@@ -185,13 +185,7 @@ fn draw_agents(
     );
 }
 
-fn draw_ui(
-    root: &mut Root,
-    ui_layer: &mut Offscreen,
-    map: &Map,
-    cursor: &Cursor,
-    header: &String,
-) {
+fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
     use tcod::console::TextAlignment;
     ui_layer.clear();
     ui_layer.set_default_foreground(COLOR_GROUND_FG);
@@ -408,7 +402,7 @@ fn main() {
         }
         draw_vis(&mut root, &mut map_layer, &astar, &trajectory);
         draw_agents(&mut root, &mut map_layer, &player, &monster);
-        draw_ui(&mut root, &mut ui_layer, &map, &cursor, &header);
+        draw_ui(&mut root, &mut ui_layer, &header);
         cursor.draw(&mut root, &map);
         root.flush();
     }
