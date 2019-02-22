@@ -35,7 +35,7 @@ const PANEL_HEIGHT: u32 = 10;
 
 // Have the map consume the space not consumed by the GUI
 const MAP_WIDTH: u32 = SCREEN_WIDTH;
-const MAP_HEIGHT: u32 = SCREEN_HEIGHT - TOP_BAR_HEIGHT - PANEL_HEIGHT;
+const MAP_HEIGHT: u32 = SCREEN_HEIGHT - TOP_BAR_HEIGHT - PANEL_HEIGHT - 1;
 const MAP_AREA: (i32, i32) = (0, TOP_BAR_HEIGHT as i32);
 
 const COLOR_CANVAS_BG: Color = Color { r: 94, g: 86, b: 76 };
@@ -50,6 +50,62 @@ const COLOR_GROUND_BG: Color = Color { r: 246, g: 230, b: 206 };
 const COLOR_CURSOR: Color = colors::DARK_GREEN;
 const COLOR_MONSTER: Color = Color { r: 44, g: 200, b: 247 };
 const COLOR_PLAYER: Color = Color { r: 188, g: 7, b: 98 };
+
+#[derive(PartialEq, Default)]
+struct Cursor {
+    mouse: Mouse,
+}
+
+impl Cursor {
+    pub fn update_mouse(&mut self, m: Mouse) {
+        self.mouse = m;
+    }
+
+    pub fn draw<C: Console>(&self, console: &mut C, map: &Map) {
+        let (x, y) = self.as_tuple();
+        let color = if let Some(tile) = map.get(x - MAP_AREA.0 as u32, y - MAP_AREA.1 as u32) {
+            if *tile == Tile::FLOOR {
+                COLOR_CURSOR
+            } else {
+                colors::RED
+            }
+        } else {
+            colors::WHITE
+        };
+
+        console.put_char(
+            self.mouse.cx as i32,
+            self.mouse.cy as i32,
+            'X',
+            BackgroundFlag::None,
+        );
+        console.set_char_foreground(self.mouse.cx as i32, self.mouse.cy as i32, color);
+    }
+
+    #[inline]
+    pub fn as_tuple(&self) -> (u32, u32) {
+        (self.mouse.cx as u32, self.mouse.cy as u32)
+    }
+
+    #[inline]
+    pub fn as_position(&self) -> Position {
+        Position::new(self.mouse.cx as u32, self.mouse.cy as u32)
+    }
+}
+
+impl Into<Position> for Cursor {
+    #[inline]
+    fn into(self) -> Position {
+        self.as_position()
+    }
+}
+
+impl Into<(u32, u32)> for Cursor {
+    #[inline]
+    fn into(self) -> (u32, u32) {
+        self.as_tuple()
+    }
+}
 
 fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
     map_layer.clear();
@@ -78,8 +134,6 @@ fn draw_vis(
     planner: &AStar<TurnOptimal>,
     trajectory: &Trajectory<TurnOptimal>,
 ) {
-    vis_layer.clear();
-
     for Position { x, y } in planner.inspect_discovered() {
         vis_layer.put_char_ex(*x as i32, *y as i32, 177 as char, colors::RED, COLOR_GROUND_BG);
     }
@@ -104,8 +158,6 @@ fn draw_agents(
     player: &Option<Position>,
     monster: &Option<Actor>,
 ) {
-    agent_layer.clear();
-
     if let Some(player) = &player {
         let (x, y) = (player.x as i32, player.y as i32);
         agent_layer.set_default_foreground(COLOR_PLAYER);
@@ -137,33 +189,27 @@ fn draw_ui(
     root: &mut Root,
     ui_layer: &mut Offscreen,
     map: &Map,
-    mouse: &Mouse,
+    cursor: &Cursor,
     header: &String,
 ) {
     use tcod::console::TextAlignment;
     ui_layer.clear();
     ui_layer.set_default_foreground(COLOR_GROUND_FG);
-    let color = if mouse.cy >= MAP_AREA.1 as isize {
-        if let Some(tile) = map.get(
-            (mouse.cx - MAP_AREA.0 as isize) as u32,
-            (mouse.cy - MAP_AREA.1 as isize) as u32,
-        ) {
-            if *tile == Tile::FLOOR {
-                COLOR_CURSOR
-            } else {
-                colors::RED
-            }
-        } else {
-            colors::WHITE
-        }
-    } else {
-        colors::WHITE
-    };
-    ui_layer.put_char(mouse.cx as i32, mouse.cy as i32, 'X', BackgroundFlag::Screen);
-    ui_layer.set_char_foreground(mouse.cx as i32, mouse.cy as i32, color);
-    ui_layer.set_alignment(TextAlignment::Center);
-    ui_layer.print((SCREEN_WIDTH / 2) as i32, 0, header);
+    ui_layer.set_default_background(COLOR_CANVAS_BG);
+
+    ui_layer.print_ex(
+        (SCREEN_WIDTH / 2) as i32,
+        0,
+        BackgroundFlag::Set,
+        TextAlignment::Center,
+        header,
+    );
     ui_layer.set_alignment(TextAlignment::Left);
+
+    ui_layer.set_default_background(colors::BLACK);
+    ui_layer.set_background_flag(BackgroundFlag::None);
+    ui_layer.set_key_color(colors::BLACK);
+
     blit(
         ui_layer,
         (0, 0),
@@ -171,7 +217,7 @@ fn draw_ui(
         root,
         (0, 0),
         1f32,
-        0f32,
+        1f32,
     );
 }
 
@@ -212,12 +258,11 @@ fn main() {
     println!("   BACKSPACE - restart planning");
     println!("   DELETE - generate a new map");
     println!("   F1 - toggle heuristic functions");
+    println!("   F2 - toggle map visibility");
 
     info!(logger, "Starting vis"; "seed" => format!("{:?}", seed));
 
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
-    let mut vis_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
-    let mut agent_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
     let mut ui_layer = Offscreen::new(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32);
 
     let mut monster: Option<Actor> = None;
@@ -235,11 +280,11 @@ fn main() {
     let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
     let mut render_map = true;
 
-    let mut mouse = Default::default();
+    let mut cursor: Cursor = Default::default();
     let mut key = Default::default();
     'main_loop: while !root.window_closed() {
         match input::check_for_event(input::MOUSE | input::KEY_PRESS) {
-            Some((_, Event::Mouse(m))) => mouse = m,
+            Some((_, Event::Mouse(m))) => cursor.update_mouse(m),
             Some((_, Event::Key(k))) => key = k,
             _ => key = Default::default(),
         }
@@ -305,37 +350,35 @@ fn main() {
             _ => (),
         };
 
-        let mouse_pos = Position::new(
-            (mouse.cx - MAP_AREA.0 as isize) as u32,
-            (mouse.cy - MAP_AREA.1 as isize) as u32,
-        );
-        if let Some(tile) = map.get(mouse_pos.x, mouse_pos.y) {
+        let cursor_pos =
+            cursor.as_position() - Position::new(MAP_AREA.0 as u32, MAP_AREA.1 as u32);
+        if let Some(tile) = map.pos(&cursor_pos) {
             if *tile == Tile::FLOOR {
-                if mouse.lbutton && !overlaps_position(&player, &mouse_pos) {
+                if cursor.mouse.lbutton && !overlaps_position(&player, &cursor_pos) {
                     astar = AStar::new();
                     trajectory = Default::default();
                     converged = false;
                     monster = if let Some(mut monster) = monster {
-                        monster.pos.x = mouse_pos.x;
-                        monster.pos.y = mouse_pos.y;
+                        monster.pos.x = cursor_pos.x;
+                        monster.pos.y = cursor_pos.y;
                         Some(monster)
                     } else {
-                        Some(Actor::new(mouse_pos.x, mouse_pos.y, 100, 100))
+                        Some(Actor::new(cursor_pos.x, cursor_pos.y, 100, 100))
                     }
                 }
 
-                if mouse.rbutton
-                    && !overlaps_position(&monster.clone().map(|m| m.pos), &mouse_pos)
+                if cursor.mouse.rbutton
+                    && !overlaps_position(&monster.clone().map(|m| m.pos), &cursor_pos)
                 {
                     astar = AStar::new();
                     trajectory = Default::default();
                     converged = false;
                     player = if let Some(mut player) = player {
-                        player.x = mouse.cx as u32;
-                        player.y = mouse_pos.y;
+                        player.x = cursor_pos.x;
+                        player.y = cursor_pos.y;
                         Some(player)
                     } else {
-                        Some(Position { x: mouse_pos.x, y: mouse_pos.y })
+                        Some(cursor_pos)
                     }
                 }
             }
@@ -349,12 +392,14 @@ fn main() {
 
         root.clear();
         root.set_default_background(COLOR_CANVAS_BG);
+        map_layer.clear();
         if render_map {
             draw_map(&mut root, &mut map_layer, &map);
         }
-        draw_vis(&mut root, &mut vis_layer, &astar, &trajectory);
-        draw_ui(&mut root, &mut ui_layer, &map, &mouse, &header);
-        draw_agents(&mut root, &mut agent_layer, &player, &monster);
+        draw_vis(&mut root, &mut map_layer, &astar, &trajectory);
+        draw_agents(&mut root, &mut map_layer, &player, &monster);
+        draw_ui(&mut root, &mut ui_layer, &map, &cursor, &header);
+        cursor.draw(&mut root, &map);
         root.flush();
     }
 }
