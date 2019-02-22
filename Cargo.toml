@@ -15,3 +15,6 @@ path = "lib/lib.rs"
 [dependencies]
 tcod = "0.13"
 rand = "0.6"
+rand_xorshift = "0.1"
+slog = "2.4.1"
+slog-term = "2.4.0"

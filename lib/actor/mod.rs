@@ -1,33 +1,72 @@
 use super::Position;
 use crate::map::Map;
-use crate::path::{HeuristicModel, Model, Sampler, State};
+use crate::path::{self, HeuristicModel, Model, Optimizer, PathResult, Sampler, State};
+
+use std::fmt::{self, Display};
 
 pub type ActionResult = Result<(), String>;
 
-pub trait Action<A: Actor> {
-    fn execute(&self, map: &Map, actor: &mut A) -> ActionResult;
-}
-
-pub trait Actor {
-    fn take_turn(&mut self, map: &Map) -> Box<dyn Action<Self>>;
+pub trait Action {
+    fn execute(&self, map: &Map, actor: &mut Actor) -> ActionResult;
 }
 
 #[derive(Debug, Clone)]
-pub struct Monster {
+pub struct Actor {
     pub pos: Position,
     mana: usize,
     max_mana: usize,
 }
 
-impl Monster {
-    pub fn new(x: u32, y: u32, mana: usize, max_mana: usize) -> Self {
-        Monster { pos: Position { x, y }, mana, max_mana }
+pub enum Goal {
+    GoTo(Position),
+    Do(Box<dyn Action>),
+    None,
+}
+
+impl Goal {
+    pub fn new() -> Self {
+        Goal::None
+    }
+
+    pub fn go_to<P>(goal: P) -> Self
+    where
+        P: Into<Position>,
+    {
+        Goal::GoTo(goal.into())
     }
 }
 
-impl Actor for Monster {
-    fn take_turn(&mut self, map: &Map) -> Box<dyn Action<Self>> {
-        Box::new(Movement::None)
+impl Actor {
+    pub fn new(x: u32, y: u32, mana: usize, max_mana: usize) -> Self {
+        Actor { pos: Position { x, y }, mana, max_mana }
+    }
+
+    pub fn take_turn(&mut self, goal: Goal, map: &Map) -> Box<dyn Action> {
+        let map = map.clone();
+
+        match goal {
+            Goal::GoTo(position) => {
+                // Create a goal to go to the defined position
+                let mut goal = self.clone();
+                goal.pos = position;
+                let mut planner = path::astar::AStar::new();
+                let mut walker = WalkSampler::new();
+                let mut model = TurnOptimal::new(map);
+                let trajectory = planner.optimize(&mut model, self.clone(), goal, &mut walker);
+
+                if let PathResult::Final(trajectory) = trajectory {
+                    if let Some((_, action)) = trajectory.trajectory.first() {
+                        Box::new(action.clone())
+                    } else {
+                        Box::new(Movement::None)
+                    }
+                } else {
+                    Box::new(Movement::None)
+                }
+            }
+            Goal::Do(action) => action,
+            Goal::None => Box::new(Movement::None),
+        }
     }
 }
 
@@ -98,13 +137,13 @@ impl WalkSampler {
 
 impl Sampler<TurnOptimal> for WalkSampler {
     #[inline]
-    fn sample(&mut self, _: &TurnOptimal, _: &Monster) -> &[Movement] {
+    fn sample(&mut self, _: &TurnOptimal, _: &Actor) -> &[Movement] {
         &self.movements
     }
 }
 
-impl Action<Monster> for Movement {
-    fn execute(&self, map: &Map, actor: &mut Monster) -> ActionResult {
+impl Action for Movement {
+    fn execute(&self, map: &Map, actor: &mut Actor) -> ActionResult {
         use Movement::*;
 
         match self {
@@ -128,7 +167,7 @@ impl Action<Monster> for Movement {
     }
 }
 
-impl State for Monster {
+impl State for Actor {
     type Position = Position;
 
     fn grid_position(&self) -> Self::Position {
@@ -136,14 +175,61 @@ impl State for Monster {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Heuristic {
+    Manhattan,
+    Chebyshev,
+    DoubleManhattan,
+}
+
+impl Heuristic {
+    #[inline(always)]
+    pub fn calculate(&self, (cx, cy): (isize, isize), (gx, gy): (isize, isize)) -> usize {
+        use Heuristic::*;
+
+        let (dx, dy) = ((cx - gx).abs(), (cy - gy).abs());
+
+        let estimate = match self {
+            Manhattan => dx + dy,
+            DoubleManhattan => 2 * (dx + dy),
+            Chebyshev => (dx + dy) - 1 * dx.min(dy),
+        };
+
+        estimate as usize
+    }
+}
+
+impl Display for Heuristic {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Heuristic::Manhattan => write!(f, "Manhattan"),
+            Heuristic::DoubleManhattan => write!(f, "Doubled-Manhattan"),
+            Heuristic::Chebyshev => write!(f, "Chebyshev"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TurnOptimal {
+    heurisitc: Heuristic,
     map: Map,
 }
 
 impl TurnOptimal {
     pub fn new(map: Map) -> Self {
-        TurnOptimal { map }
+        TurnOptimal { map, heurisitc: Heuristic::Manhattan }
+    }
+
+    pub fn set_heuristic(&mut self, heuristic: Heuristic) {
+        self.heurisitc = heuristic
+    }
+
+    pub fn use_chebyshev(&mut self) {
+        self.heurisitc = Heuristic::Chebyshev
+    }
+
+    pub fn use_manhattan(&mut self) {
+        self.heurisitc = Heuristic::Manhattan
     }
 
     pub fn return_map(self) -> Map {
@@ -153,7 +239,7 @@ impl TurnOptimal {
 
 impl Model for TurnOptimal {
     type Control = Movement;
-    type State = Monster;
+    type State = Actor;
     type Cost = usize;
 
     /// Convergence occurs adjacent to the goal, not on the goal in this case
@@ -191,9 +277,6 @@ impl Model for TurnOptimal {
 impl HeuristicModel for TurnOptimal {
     /// Reasonable estimate for the number of turns required to reach the player
     fn heuristic(&self, current: &Self::State, goal: &Self::State) -> Self::Cost {
-        let Position { x, y } = current.pos;
-        let Position { x: gx, y: gy } = goal.pos;
-
-        ((gx as isize - x as isize).abs() + (gy as isize - y as isize).abs()) as usize
+        self.heurisitc.calculate(current.pos.clone().into(), goal.pos.clone().into())
     }
 }
