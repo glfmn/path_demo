@@ -134,6 +134,7 @@ fn draw_vis(
     planner: &AStar<TurnOptimal>,
     trajectory: &Trajectory<TurnOptimal>,
 ) {
+    vis_layer.set_default_background(COLOR_CANVAS_BG);
     for Position { x, y } in planner.inspect_discovered() {
         vis_layer.put_char_ex(*x as i32, *y as i32, 177 as char, colors::RED, COLOR_GROUND_BG);
     }
@@ -148,7 +149,6 @@ fn draw_vis(
         vis_layer.put_char_ex(x as i32, y as i32, '+', colors::LIGHT_SKY, colors::BLUE);
     }
 
-    vis_layer.set_key_color(colors::BLACK);
     blit(vis_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, MAP_AREA, 1f32, 1f32);
 }
 
