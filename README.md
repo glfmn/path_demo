@@ -4,10 +4,6 @@
 
 An experiment with robotics-based approaches to pathfinding applied to a video game environment.
 
-## Download a Release
-
-Go to the [releases][releases] page and find a download suitable for your OS.
-
 ## Building the Presentation
 
 With the rust tool-chain installed, clone the repository and build it with
