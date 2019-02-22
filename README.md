@@ -2,14 +2,7 @@
 
 # Pathfinding in Video Games
 
-A demonstration of path finding in video games.  The presentation is in the form
-of a long code example written in Rust and `tcod`.   Once you have seen the
-presentation, you can look into the source code to learn more about the
-pathfinding algorithms used.
-
-You may have noticed some of the paths in the demo do not seem distance optimal.
-They are instead _tun_ optimal as intended, as moving diagonally has the same
-turn cost as moving vertically.
+An experiment with robotics-based approaches to pathfinding applied to a video game environment.
 
 ## Download a Release
 
