@@ -52,7 +52,7 @@ impl Actor {
                 let mut planner = path::astar::AStar::new();
                 let mut walker = WalkSampler::new();
                 let mut model = TurnOptimal::new(map);
-                let trajectory = planner.optimize(&mut model, self.clone(), goal, &mut walker);
+                let trajectory = planner.optimize(&mut model, self, &goal, &mut walker);
 
                 if let PathResult::Final(trajectory) = trajectory {
                     if let Some((_, action)) = trajectory.trajectory.first() {

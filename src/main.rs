@@ -131,6 +131,7 @@ fn draw_vis(
     vis_layer: &mut Offscreen,
     planner: &AStar<TurnOptimal>,
     trajectory: &Trajectory<TurnOptimal>,
+    preview_traj: &Trajectory<TurnOptimal>,
 ) {
     vis_layer.set_default_background(COLOR_CANVAS_BG);
     for Position { x, y } in planner.inspect_discovered() {
@@ -140,6 +141,11 @@ fn draw_vis(
     for (state, _) in planner.inspect_queue() {
         let Position { x, y } = state.grid_position();
         vis_layer.put_char_ex(x as i32, y as i32, 178 as char, colors::GREEN, COLOR_GROUND_BG);
+    }
+
+    for (state, _) in preview_traj.trajectory.iter() {
+        let Position { x, y } = state.grid_position();
+        vis_layer.set_char_background(x as i32, y as i32, colors::YELLOW, BackgroundFlag::Set);
     }
 
     for (state, _) in trajectory.trajectory.iter() {
@@ -208,6 +214,7 @@ fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
         "BACKSPACE     - restart planning",
         "F1            - toggle heuristic functions",
         "F2            - toggle map visibility",
+        "F3            - toggle preview-path visibility",
     ] {
         ui_layer.print_ex(
             2,
@@ -276,6 +283,10 @@ fn main() {
     let mut converged = false;
     let mut heuristic = Heuristic::Manhattan;
 
+    let mut preview = AStar::<TurnOptimal>::new();
+    let mut show_preview = true;
+    let mut preview_traj = Trajectory::<TurnOptimal>::default();
+
     tcod::system::set_fps(30);
     tcod::input::show_cursor(false);
 
@@ -291,11 +302,11 @@ fn main() {
             _ => key = Default::default(),
         }
 
-        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape, F1, F2};
+        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape, F1, F2, F3};
         match key {
             Key { code: Escape, .. } => break,
             Key { code: Delete, .. } => {
-                astar = AStar::new();
+                astar.clear();
                 trajectory = Default::default();
                 map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
                 render_map = true;
@@ -304,7 +315,7 @@ fn main() {
                 info!(logger, "New map generated");
             }
             Key { code: Backspace, .. } => {
-                astar = AStar::new();
+                astar.clear();
                 trajectory = Default::default();
                 converged = false;
             }
@@ -316,7 +327,7 @@ fn main() {
                         let mut goal = monster.clone();
                         goal.pos = player.clone();
                         let result = if shift {
-                            astar.optimize(&mut model, monster.clone(), goal, &mut sampler)
+                            astar.optimize(&mut model, &monster, &goal, &mut sampler)
                         } else {
                             astar.next_trajectory(&mut model, &monster, &goal, &mut sampler)
                         };
@@ -329,6 +340,8 @@ fn main() {
                                 logger,
                                 "Converged";
                                 "heuristic" => format!("{}", heuristic),
+                                "goal" => format!("({},{})", goal.pos.x, goal.pos.y),
+                                "start" => format!("({},{})", monster.pos.x, monster.pos.y),
                                 "cost" => trajectory.cost,
                             );
                         }
@@ -337,7 +350,7 @@ fn main() {
                 }
             }
             Key { code: F1, .. } => {
-                astar = AStar::new();
+                astar.clear();
                 trajectory = Default::default();
                 converged = false;
                 match &heuristic {
@@ -349,11 +362,35 @@ fn main() {
             Key { code: F2, .. } => {
                 render_map = !render_map;
             }
+            Key { code: F3, .. } => {
+                show_preview = !show_preview;
+                if !show_preview {
+                    preview_traj.trajectory.clear();
+                }
+            }
             _ => (),
         };
 
         let cursor_pos =
             cursor.as_position() - Position::new(MAP_AREA.0 as u32, MAP_AREA.1 as u32);
+        if show_preview {
+            if let Some(monster) = &monster {
+                let mut model = TurnOptimal::new(map);
+                model.set_heuristic(heuristic.clone());
+                let mut goal = monster.clone();
+                goal.pos = cursor_pos.clone();
+                use game_lib::path::PathFindingErr;
+                preview.clear();
+                match preview.optimize(&mut model, monster, &goal, &mut sampler) {
+                    PathResult::Final(traj) => preview_traj = traj,
+                    PathResult::Err(PathFindingErr::Unreachable) => {
+                        preview_traj = Trajectory::default()
+                    }
+                    _ => (),
+                }
+                map = model.return_map();
+            }
+        }
         if let Some(tile) = map.pos(&cursor_pos) {
             if *tile == Tile::FLOOR {
                 if cursor.mouse.lbutton && !overlaps_position(&player, &cursor_pos) {
@@ -398,7 +435,7 @@ fn main() {
         if render_map {
             draw_map(&mut root, &mut map_layer, &map);
         }
-        draw_vis(&mut root, &mut map_layer, &astar, &trajectory);
+        draw_vis(&mut root, &mut map_layer, &astar, &trajectory, &preview_traj);
         draw_agents(&mut root, &mut map_layer, &player, &monster);
         draw_ui(&mut root, &mut ui_layer, &header);
         cursor.draw(&mut root, &map);

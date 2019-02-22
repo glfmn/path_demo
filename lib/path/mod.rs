@@ -232,8 +232,8 @@ where
     fn optimize(
         &mut self,
         model: &mut M,
-        start: M::State,
-        goal: M::State,
+        start: &M::State,
+        goal: &M::State,
         sampler: &mut S,
     ) -> PathResult<M>;
 }
