@@ -1,5 +1,6 @@
 extern crate game_lib;
 extern crate rand;
+extern crate rand_xorshift;
 extern crate tcod;
 
 #[macro_use]
@@ -16,7 +17,8 @@ use game_lib::path::astar::AStar;
 use game_lib::path::{Optimizer, PathResult, State, Trajectory};
 use game_lib::Position;
 
-use rand::thread_rng;
+use rand::{thread_rng, Rng, SeedableRng};
+use rand_xorshift::XorShiftRng;
 
 use tcod::colors::{self, Color};
 use tcod::console::*;
@@ -193,7 +195,8 @@ fn main() {
         .title("Pathfinding")
         .init();
 
-    let mut map_rng = thread_rng();
+    let seed = thread_rng().gen();
+    let mut map_rng = XorShiftRng::from_seed(seed);
 
     let term = slog_term::TermDecorator::new().force_color().build();
     let decorator = slog_term::CompactFormat::new(term).build();
@@ -210,7 +213,7 @@ fn main() {
     println!("   DELETE - generate a new map");
     println!("   F1 - toggle heuristic functions");
 
-    info!(logger, "Starting vis");
+    info!(logger, "Starting vis"; "seed" => format!("{:?}", seed));
 
     let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
     let mut vis_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
