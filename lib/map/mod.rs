@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 use std::ops::{Index, IndexMut};
 
+use super::Position;
+
 /// A Tile on the map
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tile {
@@ -71,6 +73,16 @@ impl Map {
     #[inline(always)]
     fn sub2ind(&self, x: u32, y: u32) -> usize {
         x as usize + y as usize * self.width as usize
+    }
+
+    pub fn pos(&self, pos: &Position) -> Option<&Tile> {
+        let index = self.sub2ind(pos.x, pos.y);
+        self.tiles.get(index)
+    }
+
+    pub fn pos_mut(&mut self, pos: &Position) -> Option<&mut Tile> {
+        let index = self.sub2ind(pos.x, pos.y);
+        self.tiles.get_mut(index)
     }
 
     /// Get a reference to a tile, if it exists in the Map
@@ -248,6 +260,30 @@ impl Index<(u32, u32)> for Map {
 
 impl IndexMut<(u32, u32)> for Map {
     fn index_mut(&mut self, (x, y): (u32, u32)) -> &mut Tile {
+        if y >= self.height || x >= self.width {
+            panic!("Index ({}, {}) out of bounds ({}, {})", x, y, self.width, self.height);
+        }
+
+        let index = self.sub2ind(x, y);
+        &mut self.tiles[index]
+    }
+}
+
+impl Index<Position> for Map {
+    type Output = Tile;
+
+    fn index(&self, Position { x, y }: Position) -> &Self::Output {
+        if y >= self.height || x >= self.width {
+            panic!("Index ({}, {}) out of bounds ({}, {})", x, y, self.width, self.height);
+        }
+
+        let index = self.sub2ind(x, y);
+        &self.tiles[index]
+    }
+}
+
+impl IndexMut<Position> for Map {
+    fn index_mut(&mut self, Position { x, y }: Position) -> &mut Tile {
         if y >= self.height || x >= self.width {
             panic!("Index ({}, {}) out of bounds ({}, {})", x, y, self.width, self.height);
         }
