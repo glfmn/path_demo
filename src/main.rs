@@ -9,8 +9,6 @@ extern crate slog_term;
 
 use slog::{Drain, Logger};
 
-mod draw;
-
 use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::AStar;
