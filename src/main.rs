@@ -206,6 +206,27 @@ fn draw_ui(
     );
     ui_layer.set_alignment(TextAlignment::Left);
 
+    let mut y = 0;
+    for msg in &[
+        "ESC           - quit",
+        "DELETE        - generate a new map",
+        "L/R Click     - place the monster and the goal",
+        "ENTER         - plan one iteration",
+        "SHIFT + ENTER - plan all the way to the goal",
+        "BACKSPACE     - restart planning",
+        "F1            - toggle heuristic functions",
+        "F2            - toggle map visibility",
+    ] {
+        ui_layer.print_ex(
+            2,
+            (TOP_BAR_HEIGHT + MAP_HEIGHT + 1 + y) as i32,
+            BackgroundFlag::Set,
+            TextAlignment::Left,
+            *msg,
+        );
+        y += 1;
+    }
+
     ui_layer.set_default_background(colors::BLACK);
     ui_layer.set_background_flag(BackgroundFlag::None);
     ui_layer.set_key_color(colors::BLACK);
@@ -248,17 +269,6 @@ fn main() {
     let decorator = slog_term::CompactFormat::new(term).build();
     let drain = std::sync::Mutex::new(decorator).fuse();
     let logger = Logger::root(drain, o!());
-
-    println!("\nVisulaizaiton controls:\n");
-    println!("   ESC - quit");
-    println!("   LEFT CLICK - place monster");
-    println!("   RIGHT CLICK - place player/goal");
-    println!("   ENTER - step forward once in path-finding");
-    println!("   SHIFT + ENTER - plan all the way to the goal");
-    println!("   BACKSPACE - restart planning");
-    println!("   DELETE - generate a new map");
-    println!("   F1 - toggle heuristic functions");
-    println!("   F2 - toggle map visibility");
 
     info!(logger, "Starting vis"; "seed" => format!("{:?}", seed));
 
