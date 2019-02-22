@@ -122,6 +122,12 @@ where
         }
     }
 
+    pub fn clear(&mut self) {
+        self.queue.clear();
+        self.parent_map.clear();
+        self.grid.clear();
+    }
+
     pub fn inspect_queue(&self) -> impl Iterator<Item = (&M::State, &M::Control)> {
         self.queue.iter().map(|node| (&node.state, &node.control))
     }
@@ -246,22 +252,26 @@ where
     fn optimize(
         &mut self,
         model: &mut M,
-        start: M::State,
-        goal: M::State,
+        start: &M::State,
+        goal: &M::State,
         sampler: &mut S,
     ) -> PathResult<M> {
         use PathFindingErr::*;
         use PathResult::*;
 
-        if model.converge(&start, &goal) {
+        if model.converge(start, goal) {
             return Final(Trajectory {
                 cost: Default::default(),
-                trajectory: vec![(start, Default::default())],
+                trajectory: vec![(start.clone(), Default::default())],
             });
         }
 
-        let start_id = Id { id: 0, g: Default::default(), f: model.heuristic(&start, &goal) };
-        self.queue.push(Node { id: start_id, state: start, control: Default::default() });
+        let start_id = Id { id: 0, g: Default::default(), f: model.heuristic(start, goal) };
+        self.queue.push(Node {
+            id: start_id,
+            state: start.clone(),
+            control: Default::default(),
+        });
 
         while let Some(current) = self.queue.pop() {
             if self.step(&current, model, &goal, sampler) {
