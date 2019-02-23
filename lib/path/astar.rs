@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use super::*;
 
 /// The Id which identifies a particular node and allows for comparisons
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Id<M>
 where
     M: Model,
@@ -17,6 +17,15 @@ where
     f: M::Cost,
     /// Cost to arrive at this node following the parents
     g: M::Cost,
+}
+
+impl<M> Clone for Id<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Id { id: self.id.clone(), f: self.f.clone(), g: self.g.clone() }
+    }
 }
 
 impl<M> Hash for Id<M>
@@ -58,7 +67,7 @@ where
 }
 
 /// Nodes stored for planning
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct Node<M>
 where
     M: Model,
@@ -66,6 +75,15 @@ where
     id: Id<M>,
     state: M::State,
     control: M::Control,
+}
+
+impl<M> Clone for Node<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Node { id: self.id.clone(), state: self.state.clone(), control: self.control.clone() }
+    }
 }
 
 impl<M> PartialEq for Node<M>

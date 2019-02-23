@@ -63,7 +63,7 @@ pub trait State {
 ///
 /// The model defines how costs are estimated and calculated, the mapping between controls and
 /// states, and the validity and termination conditions of our problem.
-pub trait Model: Clone {
+pub trait Model {
     /// The state of the system as a result of actions taken
     type State: Debug + Clone + State;
 
