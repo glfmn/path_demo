@@ -1,4 +1,4 @@
-use std::cmp::{Ord, Ordering, PartialEq, PartialOrd};
+use std::cmp::{Ord, Ordering, PartialEq, PartialOrd, Reverse};
 use std::collections::hash_map::Entry;
 use std::collections::{BinaryHeap, HashMap};
 use std::hash::{Hash, Hasher};
@@ -16,9 +16,28 @@ where
     /// Simple integer ID which must be unique
     id: usize,
     /// Estimated cost including the heuristic
-    f: M::Cost,
+    f: Reverse<M::Cost>,
     /// Cost to arrive at this node following the parents
     g: M::Cost,
+}
+
+impl<M> Id<M>
+where
+    M: Model,
+{
+    pub fn new(id: usize, f: M::Cost, g: M::Cost) -> Self {
+        Id { id, f: Reverse(f), g }
+    }
+
+    #[inline(always)]
+    pub fn g(&self) -> M::Cost {
+        self.g.clone()
+    }
+
+    #[inline(always)]
+    pub fn f(&self) -> M::Cost {
+        self.f.0.clone()
+    }
 }
 
 impl<M> Clone for Id<M>
@@ -55,7 +74,7 @@ where
     M: Model,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(other.f.cmp(&self.f))
+        Some(self.f.cmp(&other.f))
     }
 }
 
@@ -64,7 +83,7 @@ where
     M: Model,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.f.cmp(&self.f)
+        self.f.cmp(&other.f)
     }
 }
 
@@ -177,12 +196,11 @@ where
             if let Some(child_state) = model.integrate(&current.state, &control) {
                 self.id_counter += 1;
 
-                let cost =
-                    current.id.g.clone() + model.cost(&current.state, &control, &child_state);
+                let cost = current.id.g() + model.cost(&current.state, &control, &child_state);
                 let heuristic = model.heuristic(&child_state, goal);
 
                 let child = Node::<M> {
-                    id: Id { id: self.id_counter, g: cost.clone(), f: cost + heuristic },
+                    id: Id::new(self.id_counter, cost.clone() + heuristic, cost),
                     state: child_state,
                     control: control.clone(),
                 };
@@ -250,8 +268,7 @@ where
         use PathResult::*;
 
         if self.parent_map.is_empty() && self.queue.is_empty() {
-            let start_id =
-                Id { id: 0, g: Default::default(), f: model.heuristic(start, goal) };
+            let start_id = Id::new(0, model.heuristic(start, goal), Default::default());
             self.queue.push(Node {
                 id: start_id,
                 state: start.clone(),
@@ -287,7 +304,7 @@ where
             });
         }
 
-        let start_id = Id { id: 0, g: Default::default(), f: model.heuristic(start, goal) };
+        let start_id = Id::new(0, model.heuristic(start, goal), Default::default());
         self.queue.push(Node {
             id: start_id,
             state: start.clone(),
