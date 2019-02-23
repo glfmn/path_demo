@@ -308,6 +308,7 @@ fn main() {
             Key { code: Delete, .. } => {
                 astar.clear();
                 trajectory = Default::default();
+                preview_traj = Default::default();
                 map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
                 render_map = true;
                 monster = None;
