@@ -2,7 +2,7 @@ pub mod actor;
 pub mod map;
 pub mod path;
 
-use std::ops::{Add, Sub};
+use std::ops::{Add, Mul, Sub};
 
 /// An (x,y) position in the game world
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -30,6 +30,14 @@ impl Sub for Position {
 
     fn sub(self, other: Position) -> Self::Output {
         Position { x: self.x - other.x, y: self.y - other.y }
+    }
+}
+
+impl Mul for Position {
+    type Output = u32;
+
+    fn mul(self, rhs: Position) -> Self::Output {
+        self.x * rhs.x + self.y * rhs.y
     }
 }
 
