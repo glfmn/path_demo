@@ -15,6 +15,17 @@ impl Position {
     pub fn new(x: u32, y: u32) -> Self {
         Position { x, y }
     }
+
+    pub fn square_dist(&self, other: Position) -> f64 {
+        let dx = self.x as f64 - other.x as f64;
+        let dy = self.y as f64 - other.y as f64;
+
+        dx * dx + dy * dy
+    }
+
+    pub fn dist(&self, other: Position) -> f64 {
+        self.square_dist(other).sqrt()
+    }
 }
 
 impl Add for Position {
@@ -33,6 +44,7 @@ impl Sub for Position {
     }
 }
 
+/// Dot product of positions
 impl Mul for Position {
     type Output = u32;
 

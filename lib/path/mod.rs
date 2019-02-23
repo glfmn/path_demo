@@ -94,7 +94,12 @@ pub trait Model {
     /// - traversal time
     /// - elevation change
     /// - dollars spent
-    fn cost(&self, current: &Self::State, next: &Self::State) -> Self::Cost;
+    fn cost(
+        &self,
+        current: &Self::State,
+        current: &Self::Control,
+        next: &Self::State,
+    ) -> Self::Cost;
 
     /// Read and set initial conditions
     ///

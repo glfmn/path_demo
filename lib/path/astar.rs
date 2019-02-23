@@ -177,7 +177,8 @@ where
             if let Some(child_state) = model.integrate(&current.state, &control) {
                 self.id_counter += 1;
 
-                let cost = current.id.g.clone() + model.cost(&current.state, &child_state);
+                let cost =
+                    current.id.g.clone() + model.cost(&current.state, &control, &child_state);
                 let heuristic = model.heuristic(&child_state, goal);
 
                 let child = Node::<M> {
@@ -219,7 +220,7 @@ where
         // build up the trajectory by following the parent nodes
         loop {
             if let Some(p) = self.parent_map.get(&current.id) {
-                cost = cost + model.cost(&current.state, &p.state);
+                cost = cost + model.cost(&current.state, &current.control, &p.state);
                 current = (*p).clone();
                 result.push((current.state.clone(), current.control.clone()));
             } else {

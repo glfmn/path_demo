@@ -180,6 +180,7 @@ pub enum Heuristic {
     Manhattan,
     Chebyshev,
     DoubleManhattan,
+    Diagonal,
 }
 
 impl Heuristic {
@@ -190,9 +191,10 @@ impl Heuristic {
         let (dx, dy) = ((cx - gx).abs(), (cy - gy).abs());
 
         let estimate = match self {
-            Manhattan => dx + dy,
-            DoubleManhattan => 2 * (dx + dy),
-            Chebyshev => (dx + dy) - 1 * dx.min(dy),
+            Manhattan => 2 * (dx + dy),
+            DoubleManhattan => 4 * (dx + dy),
+            Chebyshev => (dx + dy) - dx.min(dy),
+            Diagonal => 2 * ((dx + dy) - 2 * dx.min(dy)),
         };
 
         estimate as usize
@@ -205,6 +207,7 @@ impl Display for Heuristic {
             Heuristic::Manhattan => write!(f, "Manhattan"),
             Heuristic::DoubleManhattan => write!(f, "Doubled-Manhattan"),
             Heuristic::Chebyshev => write!(f, "Chebyshev"),
+            Heuristic::Diagonal => write!(f, "Diagonal"),
         }
     }
 }
@@ -269,8 +272,18 @@ impl Model for TurnOptimal {
     fn init(&mut self, _: &Self::State) {}
 
     #[inline(always)]
-    fn cost(&self, _current: &Self::State, _next: &Self::State) -> Self::Cost {
-        1
+    fn cost(
+        &self,
+        _current: &Self::State,
+        control: &Self::Control,
+        _next: &Self::State,
+    ) -> Self::Cost {
+        use Direction::*;
+        use Movement::*;
+        match control {
+            Walk(NorthEast) | Walk(SouthEast) | Walk(SouthWest) | Walk(NorthWest) => 3,
+            _ => 2,
+        }
     }
 }
 

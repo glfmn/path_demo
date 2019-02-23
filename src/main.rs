@@ -105,8 +105,7 @@ impl Into<(u32, u32)> for Cursor {
     }
 }
 
-fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
-    map_layer.clear();
+fn draw_map(map_layer: &mut Offscreen, map: &Map) {
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             let (char, fg_color, bg_color) = if map[(x, y)].is_wall() {
@@ -122,12 +121,9 @@ fn draw_map(root: &mut Root, map_layer: &mut Offscreen, map: &Map) {
             map_layer.put_char_ex(x as i32, y as i32, char, fg_color, bg_color);
         }
     }
-
-    blit(map_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, MAP_AREA, 1f32, 1f32);
 }
 
 fn draw_vis(
-    root: &mut Root,
     vis_layer: &mut Offscreen,
     planner: &AStar<TurnOptimal>,
     trajectory: &Trajectory<TurnOptimal>,
@@ -152,24 +148,17 @@ fn draw_vis(
         let Pos { x, y } = state.grid_position();
         vis_layer.put_char_ex(x as i32, y as i32, '+', colors::LIGHT_SKY, colors::BLUE);
     }
-
-    blit(vis_layer, (0, 0), (MAP_WIDTH as i32, MAP_HEIGHT as i32), root, MAP_AREA, 1f32, 1f32);
 }
 
-fn draw_agents(
-    root: &mut Root,
-    agent_layer: &mut Offscreen,
-    player: &Option<Pos>,
-    monster: &Option<Actor>,
-) {
+fn draw_agents(agent_layer: &mut Offscreen, player: &Option<Pos>, monster: &Option<Actor>) {
     if let Some(player) = &player {
         let (x, y) = (player.x as i32, player.y as i32);
         agent_layer.set_default_foreground(COLOR_PLAYER);
         agent_layer.put_char(x, y, '@', BackgroundFlag::None);
-        agent_layer.horizontal_line(x + 1, y, 1, BackgroundFlag::Add);
-        agent_layer.horizontal_line(x - 1, y, 1, BackgroundFlag::Add);
-        agent_layer.vertical_line(x, y - 1, 1, BackgroundFlag::Add);
-        agent_layer.vertical_line(x, y + 1, 1, BackgroundFlag::Add);
+        agent_layer.horizontal_line(x + 1, y, 1, BackgroundFlag::None);
+        agent_layer.horizontal_line(x - 1, y, 1, BackgroundFlag::None);
+        agent_layer.vertical_line(x, y - 1, 1, BackgroundFlag::None);
+        agent_layer.vertical_line(x, y + 1, 1, BackgroundFlag::None);
     }
 
     if let Some(monster) = &monster {
@@ -177,16 +166,6 @@ fn draw_agents(
         agent_layer.set_default_foreground(COLOR_MONSTER);
         agent_layer.put_char(x, y, 'M', BackgroundFlag::None);
     }
-
-    blit(
-        agent_layer,
-        (0, 0),
-        (MAP_WIDTH as i32, MAP_HEIGHT as i32),
-        root,
-        MAP_AREA,
-        1f32,
-        0f32,
-    );
 }
 
 fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
@@ -357,7 +336,8 @@ fn main() {
                 match &heuristic {
                     &Heuristic::Chebyshev => heuristic = Heuristic::Manhattan,
                     &Heuristic::Manhattan => heuristic = Heuristic::DoubleManhattan,
-                    &Heuristic::DoubleManhattan => heuristic = Heuristic::Chebyshev,
+                    &Heuristic::DoubleManhattan => heuristic = Heuristic::Diagonal,
+                    &Heuristic::Diagonal => heuristic = Heuristic::Chebyshev,
                 }
             }
             Key { code: F2, .. } => {
@@ -433,10 +413,19 @@ fn main() {
         root.set_default_background(COLOR_CANVAS_BG);
         map_layer.clear();
         if render_map {
-            draw_map(&mut root, &mut map_layer, &map);
+            draw_map(&mut map_layer, &map);
         }
-        draw_vis(&mut root, &mut map_layer, &astar, &trajectory, &preview_traj);
-        draw_agents(&mut root, &mut map_layer, &player, &monster);
+        draw_vis(&mut map_layer, &astar, &trajectory, &preview_traj);
+        draw_agents(&mut map_layer, &player, &monster);
+        blit(
+            &map_layer,
+            (0, 0),
+            (MAP_WIDTH as i32, MAP_HEIGHT as i32),
+            &mut root,
+            MAP_AREA,
+            1f32,
+            1f32,
+        );
         draw_ui(&mut root, &mut ui_layer, &header);
         cursor.draw(&mut root, &map);
         root.flush();
