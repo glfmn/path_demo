@@ -3,6 +3,8 @@ use std::collections::hash_map::Entry;
 use std::collections::{BinaryHeap, HashMap};
 use std::hash::{Hash, Hasher};
 
+use fnv::FnvHashMap;
+
 use super::*;
 
 /// The Id which identifies a particular node and allows for comparisons
@@ -121,7 +123,7 @@ where
     M: HeuristicModel,
 {
     queue: BinaryHeap<Node<M>>,
-    parent_map: HashMap<Id<M>, Node<M>>,
+    parent_map: FnvHashMap<Id<M>, Node<M>>,
     grid: HashMap<<<M as Model>::State as State>::Position, Id<M>>,
     id_counter: usize,
 }
@@ -134,7 +136,7 @@ where
     pub fn new() -> Self {
         AStar {
             queue: BinaryHeap::new(),
-            parent_map: HashMap::new(),
+            parent_map: FnvHashMap::default(),
             grid: HashMap::new(),
             id_counter: 0,
         }
