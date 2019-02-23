@@ -1,12 +1,4 @@
-extern crate game_lib;
-extern crate rand;
-extern crate rand_xorshift;
-extern crate tcod;
-
-#[macro_use]
-extern crate slog;
-extern crate slog_term;
-
+use slog::{crit, debug, error, info, o, trace, warn};
 use slog::{Drain, Logger};
 
 use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
