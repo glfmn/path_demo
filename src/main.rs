@@ -13,7 +13,7 @@ use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::AStar;
 use game_lib::path::{Optimizer, PathResult, State, Trajectory};
-use game_lib::Position;
+use game_lib::Position as Pos;
 
 use rand::{thread_rng, Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
@@ -86,14 +86,14 @@ impl Cursor {
     }
 
     #[inline]
-    pub fn as_position(&self) -> Position {
-        Position::new(self.mouse.cx as u32, self.mouse.cy as u32)
+    pub fn as_position(&self) -> Pos {
+        Pos::new(self.mouse.cx as u32, self.mouse.cy as u32)
     }
 }
 
-impl Into<Position> for Cursor {
+impl Into<Pos> for Cursor {
     #[inline]
-    fn into(self) -> Position {
+    fn into(self) -> Pos {
         self.as_position()
     }
 }
@@ -134,22 +134,22 @@ fn draw_vis(
     preview_traj: &Trajectory<TurnOptimal>,
 ) {
     vis_layer.set_default_background(COLOR_CANVAS_BG);
-    for Position { x, y } in planner.inspect_discovered() {
+    for Pos { x, y } in planner.inspect_discovered() {
         vis_layer.put_char_ex(*x as i32, *y as i32, 177 as char, colors::RED, COLOR_GROUND_BG);
     }
 
     for (state, _) in planner.inspect_queue() {
-        let Position { x, y } = state.grid_position();
+        let Pos { x, y } = state.grid_position();
         vis_layer.put_char_ex(x as i32, y as i32, 178 as char, colors::GREEN, COLOR_GROUND_BG);
     }
 
     for (state, _) in preview_traj.trajectory.iter() {
-        let Position { x, y } = state.grid_position();
+        let Pos { x, y } = state.grid_position();
         vis_layer.set_char_background(x as i32, y as i32, colors::YELLOW, BackgroundFlag::Set);
     }
 
     for (state, _) in trajectory.trajectory.iter() {
-        let Position { x, y } = state.grid_position();
+        let Pos { x, y } = state.grid_position();
         vis_layer.put_char_ex(x as i32, y as i32, '+', colors::LIGHT_SKY, colors::BLUE);
     }
 
@@ -159,7 +159,7 @@ fn draw_vis(
 fn draw_agents(
     root: &mut Root,
     agent_layer: &mut Offscreen,
-    player: &Option<Position>,
+    player: &Option<Pos>,
     monster: &Option<Actor>,
 ) {
     if let Some(player) = &player {
@@ -241,7 +241,7 @@ fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
     );
 }
 
-fn overlaps_position(player: &Option<Position>, mouse: &Position) -> bool {
+fn overlaps_position(player: &Option<Pos>, mouse: &Pos) -> bool {
     if let Some(player) = player {
         if player.x == mouse.x && player.y == mouse.y {
             true
@@ -275,7 +275,7 @@ fn main() {
     let mut ui_layer = Offscreen::new(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32);
 
     let mut monster: Option<Actor> = None;
-    let mut player: Option<Position> = None;
+    let mut player: Option<Pos> = None;
 
     let mut astar = AStar::<TurnOptimal>::new();
     let mut sampler = WalkSampler::new();
@@ -371,8 +371,7 @@ fn main() {
             _ => (),
         };
 
-        let cursor_pos =
-            cursor.as_position() - Position::new(MAP_AREA.0 as u32, MAP_AREA.1 as u32);
+        let cursor_pos = cursor.as_position() - Pos::new(MAP_AREA.0 as u32, MAP_AREA.1 as u32);
         if show_preview {
             if let Some(monster) = &monster {
                 let mut model = TurnOptimal::new(map);
