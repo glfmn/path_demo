@@ -19,6 +19,7 @@ rand_xorshift = "0.1"
 slog = "2.4.1"
 slog-term = "2.4.0"
 fnv = "1.0.3"
+radix-heap = "0.3.3" 
 
 [dev-dependencies]
 criterion = "0.2"

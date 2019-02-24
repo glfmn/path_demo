@@ -4,6 +4,7 @@ use std::collections::{BinaryHeap, HashMap};
 use std::hash::{Hash, Hasher};
 
 use fnv::FnvHashMap;
+use radix_heap::RadixHeapMap;
 
 use super::*;
 
@@ -140,8 +141,9 @@ where
 pub struct AStar<M>
 where
     M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
 {
-    queue: BinaryHeap<Node<M>>,
+    queue: RadixHeapMap<Reverse<M::Cost>, Node<M>>,
     parent_map: FnvHashMap<Id<M>, Node<M>>,
     grid: FnvHashMap<<<M as Model>::State as State>::Position, Id<M>>,
     id_counter: usize,
@@ -150,11 +152,12 @@ where
 impl<M> AStar<M>
 where
     M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
 {
     /// Create a new AStar optimizer
     pub fn new() -> Self {
         AStar {
-            queue: BinaryHeap::new(),
+            queue: RadixHeapMap::new(),
             parent_map: FnvHashMap::default(),
             grid: FnvHashMap::default(),
             id_counter: 0,
@@ -168,7 +171,7 @@ where
     }
 
     pub fn inspect_queue(&self) -> impl Iterator<Item = (&M::State, &M::Control)> {
-        self.queue.iter().map(|node| (&node.state, &node.control))
+        self.queue.values().map(|node| (&node.state, &node.control))
     }
 
     pub fn inspect_discovered(
@@ -222,7 +225,7 @@ where
                 }
 
                 self.parent_map.insert(child.id.clone(), current.clone());
-                self.queue.push(child);
+                self.queue.push(child.id.f, child);
             }
         }
 
@@ -255,6 +258,7 @@ where
 impl<M, S> Optimizer<M, S> for AStar<M>
 where
     M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
     S: Sampler<M>,
 {
     fn next_trajectory(
@@ -268,15 +272,15 @@ where
         use PathResult::*;
 
         if self.parent_map.is_empty() && self.queue.is_empty() {
-            let start_id = Id::new(0, model.heuristic(start, goal), Default::default());
-            self.queue.push(Node {
-                id: start_id,
-                state: start.clone(),
-                control: Default::default(),
-            });
+            let heuristic = model.heuristic(start, goal);
+            let start_id = Id::new(0, heuristic, Default::default());
+            self.queue.push(
+                Default::default(),
+                Node { id: start_id, state: start.clone(), control: Default::default() },
+            );
         }
 
-        if let Some(current) = self.queue.pop() {
+        if let Some((_, current)) = self.queue.pop() {
             if self.step(&current, model, &goal, sampler) {
                 Final(self.unwind_trajectory(model, current))
             } else {
@@ -304,14 +308,17 @@ where
             });
         }
 
-        let start_id = Id::new(0, model.heuristic(start, goal), Default::default());
-        self.queue.push(Node {
-            id: start_id,
-            state: start.clone(),
-            control: Default::default(),
-        });
+        let heuristic = model.heuristic(start, goal);
+        if self.queue.top().is_none() {
+            let heuristic = model.heuristic(start, goal);
+            let start_id = Id::new(0, heuristic, Default::default());
+            self.queue.push(
+                Default::default(),
+                Node { id: start_id, state: start.clone(), control: Default::default() },
+            );
+        }
 
-        while let Some(current) = self.queue.pop() {
+        while let Some((_, current)) = self.queue.pop() {
             if self.step(&current, model, &goal, sampler) {
                 return Final(self.unwind_trajectory(model, current));
             }

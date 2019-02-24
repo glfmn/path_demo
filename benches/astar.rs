@@ -263,7 +263,7 @@ fn single_iter(c: &mut Criterion) {
     });
 }
 
-criterion_group!(octile, full_octile, full_dijkstra_octile, full_octile_greedy);
+criterion_group!(octile, full_octile, full_dijkstra_octile);
 criterion_group!(cardinal, full_cardinal, full_dijkstra_cardinal);
 criterion_group!(single_path, single_iter);
 criterion_main!(octile, cardinal, single_path);

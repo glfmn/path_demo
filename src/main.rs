@@ -252,7 +252,7 @@ fn main() {
     let mut sampler = WalkSampler::new();
     let mut trajectory = Trajectory::<TurnOptimal>::default();
     let mut converged = false;
-    let mut heuristic = Heuristic::Manhattan;
+    let mut heuristic = Heuristic::Diagonal;
 
     let mut preview = AStar::<TurnOptimal>::new();
     let mut show_preview = true;
@@ -326,10 +326,7 @@ fn main() {
                 trajectory = Default::default();
                 converged = false;
                 match &heuristic {
-                    &Heuristic::Chebyshev => heuristic = Heuristic::Manhattan,
-                    &Heuristic::Manhattan => heuristic = Heuristic::DoubleManhattan,
-                    &Heuristic::DoubleManhattan => heuristic = Heuristic::Diagonal,
-                    &Heuristic::Diagonal => heuristic = Heuristic::Chebyshev,
+                    _ => heuristic = Heuristic::Diagonal,
                 }
             }
             Key { code: F2, .. } => {
