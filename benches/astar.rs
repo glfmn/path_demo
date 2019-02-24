@@ -46,11 +46,6 @@ make_heuristic! {
 
         2 * (dx + dy)
     },
-    Chebyshev: (x1, y1), (x2, y2) => {
-        let (dx, dy) = ((x1 - x2).abs(), (y1 - y2).abs());
-
-        (dx + dy) - dx.min(dy)
-    },
     Zero: (_x1, _y1), (_x2, _y2) => 0
 }
 
@@ -237,19 +232,19 @@ macro_rules! full_path_bench {
 
 full_path_bench! {
     full_octile, "Full Admissable Octile Path", Octile, Diagonal {
-        Position::new(29, 15) => Position::new(0, 15)
+        Position::new(30, 12) => Position::new(0, 15)
     },
     full_cardinal, "Full Admissable Cardinal Path", Cardinal, Manhattan {
-        Position::new(29, 15) => Position::new(0, 15)
+        Position::new(30, 12) => Position::new(0, 15)
     },
     full_dijkstra_octile, "Zero Heuristic on Octile grid", Octile, Zero {
-        Position::new(29, 15) => Position::new(0, 15)
+        Position::new(30, 12) => Position::new(0, 15)
     },
     full_dijkstra_cardinal, "Zero Heuristic on Cardinal grid", Cardinal, Zero {
-        Position::new(29, 15) => Position::new(0, 15)
+        Position::new(30, 12) => Position::new(0, 15)
     },
     full_octile_greedy, "Greedy octile path", Octile, Manhattan {
-        Position::new(29, 15) => Position::new(0, 15)
+        Position::new(30, 12) => Position::new(0, 15)
     }
 }
 
@@ -257,7 +252,7 @@ fn single_iter(c: &mut Criterion) {
     let mut map = map();
     let start = Position::new(31, 15);
     let goal = Position::new(0, 20);
-    let mut sampler = Octile;
+    let sampler = Octile;
 
     let mut planner: astar::AStar<BenchModel<Diagonal>> = astar::AStar::new();
     c.bench_function("Single octile iteration", move |b| {

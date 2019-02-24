@@ -117,7 +117,7 @@ impl Default for Movement {
 }
 
 pub struct WalkSampler {
-    movements: [Movement; 9],
+    movements: [Movement; 8],
 }
 
 impl WalkSampler {
@@ -135,7 +135,6 @@ impl WalkSampler {
                 Walk(SouthWest),
                 Walk(West),
                 Walk(NorthWest),
-                None,
             ],
         }
     }
@@ -202,7 +201,6 @@ impl Heuristic {
             Chebyshev => (dx + dy) - dx.min(dy),
             Diagonal => 2 * (dx + dy) - dx.min(dy),
         };
-
         estimate as usize
     }
 }
