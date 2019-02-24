@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 use std::cmp::{Ord, Ordering, PartialEq, PartialOrd, Reverse};
 use std::collections::hash_map::Entry;
 use std::collections::{BinaryHeap, HashMap};
@@ -9,7 +11,6 @@ use radix_heap::RadixHeapMap;
 use super::*;
 
 /// The Id which identifies a particular node and allows for comparisons
-#[derive(Debug)]
 struct Id<M>
 where
     M: Model,
@@ -88,8 +89,21 @@ where
     }
 }
 
+impl<M> Debug for Id<M>
+where
+    M: Model,
+    M::Cost: Debug,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("Id")
+            .field("g", &self.g)
+            .field("f", &self.f)
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
 /// Nodes stored for planning
-#[derive(Debug)]
 struct Node<M>
 where
     M: Model,
@@ -137,7 +151,24 @@ where
     }
 }
 
-#[derive(Debug)]
+impl<M> Debug for Node<M>
+where
+    M: Model,
+    M::Cost: Debug,
+    M::State: Debug,
+    M::Control: Debug,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("Node")
+            .field("id", &self.id.id)
+            .field("g", &self.id.g)
+            .field("f", &self.id.f)
+            .field("state", &self.state)
+            .field("control", &self.control)
+            .finish()
+    }
+}
+
 pub struct AStar<M>
 where
     M: HeuristicModel,
@@ -325,5 +356,23 @@ where
         }
 
         Err(Unreachable)
+    }
+}
+
+impl<M> Debug for AStar<M>
+where
+    M: HeuristicModel,
+    M::State: Debug,
+    M::Control: Debug,
+    M::Cost: Debug + radix_heap::Radix + Copy,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("AStar")
+            .field("counter", &self.id_counter)
+            .field("next", &self.queue.top())
+            .field("queue", &self.queue)
+            //.field("grid", &self.grid)
+            //.field("parent_map", &self.parent_map)
+            .finish()
     }
 }
