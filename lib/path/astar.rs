@@ -143,7 +143,7 @@ where
 {
     queue: BinaryHeap<Node<M>>,
     parent_map: FnvHashMap<Id<M>, Node<M>>,
-    grid: HashMap<<<M as Model>::State as State>::Position, Id<M>>,
+    grid: FnvHashMap<<<M as Model>::State as State>::Position, Id<M>>,
     id_counter: usize,
 }
 
@@ -156,7 +156,7 @@ where
         AStar {
             queue: BinaryHeap::new(),
             parent_map: FnvHashMap::default(),
-            grid: HashMap::default(),
+            grid: FnvHashMap::default(),
             id_counter: 0,
         }
     }
