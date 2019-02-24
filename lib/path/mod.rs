@@ -205,6 +205,7 @@ pub enum PathFindingErr {
     IterationLimit(usize),
 }
 
+#[derive(Debug, Clone)]
 pub enum PathResult<M>
 where
     M: Model,

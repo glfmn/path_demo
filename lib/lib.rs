@@ -28,6 +28,13 @@ impl Position {
     }
 }
 
+impl path::State for Position {
+    type Position = Self;
+    fn grid_position(&self) -> Self::Position {
+        self.clone()
+    }
+}
+
 impl Add for Position {
     type Output = Position;
 

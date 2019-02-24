@@ -156,7 +156,7 @@ where
         AStar {
             queue: BinaryHeap::new(),
             parent_map: FnvHashMap::default(),
-            grid: HashMap::new(),
+            grid: HashMap::default(),
             id_counter: 0,
         }
     }

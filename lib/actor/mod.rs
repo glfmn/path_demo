@@ -83,7 +83,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn step_from(&self, x: u32, y: u32) -> (u32, u32) {
+    pub fn step_from(&self, x: u32, y: u32) -> (u32, u32) {
         use Direction::*;
         match *self {
             North => (x, y + 1),
@@ -95,6 +95,12 @@ impl Direction {
             West => (x - 1, y),
             NorthWest => (x - 1, y + 1),
         }
+    }
+}
+
+impl Default for Direction {
+    fn default() -> Self {
+        Direction::North
     }
 }
 
@@ -194,7 +200,7 @@ impl Heuristic {
             Manhattan => 2 * (dx + dy),
             DoubleManhattan => 4 * (dx + dy),
             Chebyshev => (dx + dy) - dx.min(dy),
-            Diagonal => 2 * ((dx + dy) - 2 * dx.min(dy)),
+            Diagonal => 2 * (dx + dy) - dx.min(dy),
         };
 
         estimate as usize
