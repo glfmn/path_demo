@@ -63,12 +63,14 @@ impl Mul for Position {
 macro_rules! impl_conversion {
     ($($num:ty),+) => {
         $(
+            #[allow(clippy::cast_lossless)]
             impl Into<($num, $num)> for Position {
                 fn into(self) -> ($num, $num) {
                     (self.x as $num, self.y as $num)
                 }
             }
 
+            #[allow(clippy::cast_lossless)]
             impl From<($num, $num)> for Position {
                 fn from((x, y): ($num, $num)) -> Self {
                     Position { x: x as u32, y: y as u32 }
