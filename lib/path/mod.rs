@@ -30,6 +30,7 @@ use std::hash::Hash;
 use std::ops::Add;
 
 pub mod astar;
+pub mod dijkstra;
 
 /// Marker trait which is required for the type which a [`Model`] uses to represent costs.
 ///
