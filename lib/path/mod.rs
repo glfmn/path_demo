@@ -63,7 +63,7 @@ pub trait State {
 ///
 /// The model defines how costs are estimated and calculated, the mapping between controls and
 /// states, and the validity and termination conditions of our problem.
-pub trait Model: Clone {
+pub trait Model {
     /// The state of the system as a result of actions taken
     type State: Debug + Clone + State;
 
@@ -94,7 +94,12 @@ pub trait Model: Clone {
     /// - traversal time
     /// - elevation change
     /// - dollars spent
-    fn cost(&self, current: &Self::State, next: &Self::State) -> Self::Cost;
+    fn cost(
+        &self,
+        current: &Self::State,
+        current: &Self::Control,
+        next: &Self::State,
+    ) -> Self::Cost;
 
     /// Read and set initial conditions
     ///
@@ -200,6 +205,7 @@ pub enum PathFindingErr {
     IterationLimit(usize),
 }
 
+#[derive(Debug, Clone)]
 pub enum PathResult<M>
 where
     M: Model,

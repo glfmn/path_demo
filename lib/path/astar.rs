@@ -1,12 +1,14 @@
-use std::cmp::{Ord, Ordering, PartialEq, PartialOrd};
+use std::fmt::{Debug, Formatter};
+
+use fnv::FnvHashMap;
+use radix_heap::RadixHeapMap;
+use std::cmp::{Ord, Ordering, PartialEq, PartialOrd, Reverse};
 use std::collections::hash_map::Entry;
-use std::collections::{BinaryHeap, HashMap};
 use std::hash::{Hash, Hasher};
 
 use super::*;
 
 /// The Id which identifies a particular node and allows for comparisons
-#[derive(Debug, Clone)]
 struct Id<M>
 where
     M: Model,
@@ -14,9 +16,37 @@ where
     /// Simple integer ID which must be unique
     id: usize,
     /// Estimated cost including the heuristic
-    f: M::Cost,
+    f: Reverse<M::Cost>,
     /// Cost to arrive at this node following the parents
     g: M::Cost,
+}
+
+impl<M> Id<M>
+where
+    M: Model,
+{
+    pub fn new(id: usize, f: M::Cost, g: M::Cost) -> Self {
+        Id { id, f: Reverse(f), g }
+    }
+
+    #[inline(always)]
+    pub fn g(&self) -> M::Cost {
+        self.g.clone()
+    }
+
+    #[inline(always)]
+    pub fn f(&self) -> M::Cost {
+        self.f.0.clone()
+    }
+}
+
+impl<M> Clone for Id<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Id { id: self.id, f: self.f.clone(), g: self.g.clone() }
+    }
 }
 
 impl<M> Hash for Id<M>
@@ -44,7 +74,7 @@ where
     M: Model,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(other.f.cmp(&self.f))
+        Some(self.f.cmp(&other.f))
     }
 }
 
@@ -53,12 +83,25 @@ where
     M: Model,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.f.cmp(&self.f)
+        self.f.cmp(&other.f)
+    }
+}
+
+impl<M> Debug for Id<M>
+where
+    M: Model,
+    M::Cost: Debug,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("Id")
+            .field("g", &self.g)
+            .field("f", &self.f)
+            .field("id", &self.id)
+            .finish()
     }
 }
 
 /// Nodes stored for planning
-#[derive(Clone, Debug)]
 struct Node<M>
 where
     M: Model,
@@ -66,6 +109,15 @@ where
     id: Id<M>,
     state: M::State,
     control: M::Control,
+}
+
+impl<M> Clone for Node<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Node { id: self.id.clone(), state: self.state.clone(), control: self.control.clone() }
+    }
 }
 
 impl<M> PartialEq for Node<M>
@@ -97,27 +149,46 @@ where
     }
 }
 
-#[derive(Debug)]
+impl<M> Debug for Node<M>
+where
+    M: Model,
+    M::Cost: Debug,
+    M::State: Debug,
+    M::Control: Debug,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("Node")
+            .field("id", &self.id.id)
+            .field("g", &self.id.g)
+            .field("f", &self.id.f)
+            .field("state", &self.state)
+            .field("control", &self.control)
+            .finish()
+    }
+}
+
 pub struct AStar<M>
 where
     M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
 {
-    queue: BinaryHeap<Node<M>>,
-    parent_map: HashMap<Id<M>, Node<M>>,
-    grid: HashMap<<<M as Model>::State as State>::Position, Id<M>>,
+    queue: RadixHeapMap<Reverse<M::Cost>, Node<M>>,
+    parent_map: FnvHashMap<Id<M>, Node<M>>,
+    grid: FnvHashMap<<<M as Model>::State as State>::Position, Id<M>>,
     id_counter: usize,
 }
 
 impl<M> AStar<M>
 where
     M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
 {
     /// Create a new AStar optimizer
     pub fn new() -> Self {
         AStar {
-            queue: BinaryHeap::new(),
-            parent_map: HashMap::new(),
-            grid: HashMap::new(),
+            queue: RadixHeapMap::new(),
+            parent_map: FnvHashMap::default(),
+            grid: FnvHashMap::default(),
             id_counter: 0,
         }
     }
@@ -129,7 +200,7 @@ where
     }
 
     pub fn inspect_queue(&self) -> impl Iterator<Item = (&M::State, &M::Control)> {
-        self.queue.iter().map(|node| (&node.state, &node.control))
+        self.queue.values().map(|node| (&node.state, &node.control))
     }
 
     pub fn inspect_discovered(
@@ -157,11 +228,11 @@ where
             if let Some(child_state) = model.integrate(&current.state, &control) {
                 self.id_counter += 1;
 
-                let cost = current.id.g.clone() + model.cost(&current.state, &child_state);
+                let cost = current.id.g() + model.cost(&current.state, &control, &child_state);
                 let heuristic = model.heuristic(&child_state, goal);
 
                 let child = Node::<M> {
-                    id: Id { id: self.id_counter, g: cost.clone(), f: cost + heuristic },
+                    id: Id::new(self.id_counter, cost + heuristic, cost),
                     state: child_state,
                     control: control.clone(),
                 };
@@ -183,7 +254,7 @@ where
                 }
 
                 self.parent_map.insert(child.id.clone(), current.clone());
-                self.queue.push(child);
+                self.queue.push(child.id.f, child);
             }
         }
 
@@ -197,14 +268,10 @@ where
         let mut cost = M::Cost::default();
 
         // build up the trajectory by following the parent nodes
-        loop {
-            if let Some(p) = self.parent_map.get(&current.id) {
-                cost = cost + model.cost(&current.state, &p.state);
-                current = (*p).clone();
-                result.push((current.state.clone(), current.control.clone()));
-            } else {
-                break;
-            }
+        while let Some(p) = self.parent_map.get(&current.id) {
+            cost = cost + model.cost(&current.state, &current.control, &p.state);
+            current = (*p).clone();
+            result.push((current.state.clone(), current.control.clone()));
         }
 
         result.reverse();
@@ -216,6 +283,7 @@ where
 impl<M, S> Optimizer<M, S> for AStar<M>
 where
     M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
     S: Sampler<M>,
 {
     fn next_trajectory(
@@ -229,16 +297,15 @@ where
         use PathResult::*;
 
         if self.parent_map.is_empty() && self.queue.is_empty() {
-            let start_id =
-                Id { id: 0, g: Default::default(), f: model.heuristic(start, goal) };
-            self.queue.push(Node {
-                id: start_id,
-                state: start.clone(),
-                control: Default::default(),
-            });
+            let heuristic = model.heuristic(start, goal);
+            let start_id = Id::new(0, heuristic, Default::default());
+            self.queue.push(
+                Default::default(),
+                Node { id: start_id, state: start.clone(), control: Default::default() },
+            );
         }
 
-        if let Some(current) = self.queue.pop() {
+        if let Some((_, current)) = self.queue.pop() {
             if self.step(&current, model, &goal, sampler) {
                 Final(self.unwind_trajectory(model, current))
             } else {
@@ -266,19 +333,48 @@ where
             });
         }
 
-        let start_id = Id { id: 0, g: Default::default(), f: model.heuristic(start, goal) };
-        self.queue.push(Node {
-            id: start_id,
-            state: start.clone(),
-            control: Default::default(),
-        });
+        if self.queue.top().is_none() {
+            let start_id = Id::new(0, model.heuristic(start, goal), Default::default());
+            self.queue.push(
+                Default::default(),
+                Node { id: start_id, state: start.clone(), control: Default::default() },
+            );
+        }
 
-        while let Some(current) = self.queue.pop() {
+        while let Some((_, current)) = self.queue.pop() {
             if self.step(&current, model, &goal, sampler) {
                 return Final(self.unwind_trajectory(model, current));
             }
         }
 
         Err(Unreachable)
+    }
+}
+
+impl<M> Debug for AStar<M>
+where
+    M: HeuristicModel,
+    M::State: Debug,
+    M::Control: Debug,
+    M::Cost: Debug + radix_heap::Radix + Copy,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("AStar")
+            .field("counter", &self.id_counter)
+            .field("next", &self.queue.top())
+            .field("queue", &self.queue)
+            //.field("grid", &self.grid)
+            //.field("parent_map", &self.parent_map)
+            .finish()
+    }
+}
+
+impl<M> Default for AStar<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }

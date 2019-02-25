@@ -2,7 +2,7 @@ pub mod actor;
 pub mod map;
 pub mod path;
 
-use std::ops::{Add, Sub};
+use std::ops::{Add, Mul, Sub};
 
 /// An (x,y) position in the game world
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -14,6 +14,24 @@ pub struct Position {
 impl Position {
     pub fn new(x: u32, y: u32) -> Self {
         Position { x, y }
+    }
+
+    pub fn square_dist(&self, other: Position) -> f64 {
+        let dx = f64::from(self.x) - f64::from(other.x);
+        let dy = f64::from(self.y) - f64::from(other.y);
+
+        dx * dx + dy * dy
+    }
+
+    pub fn dist(&self, other: Position) -> f64 {
+        self.square_dist(other).sqrt()
+    }
+}
+
+impl path::State for Position {
+    type Position = Self;
+    fn grid_position(&self) -> Self::Position {
+        self.clone()
     }
 }
 
@@ -30,6 +48,15 @@ impl Sub for Position {
 
     fn sub(self, other: Position) -> Self::Output {
         Position { x: self.x - other.x, y: self.y - other.y }
+    }
+}
+
+/// Dot product of positions
+impl Mul for Position {
+    type Output = u32;
+
+    fn mul(self, rhs: Position) -> Self::Output {
+        self.x * rhs.x + self.y * rhs.y
     }
 }
 

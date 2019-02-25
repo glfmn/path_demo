@@ -36,6 +36,12 @@ impl Goal {
     }
 }
 
+impl Default for Goal {
+    fn default() -> Self {
+        Goal::None
+    }
+}
+
 impl Actor {
     pub fn new(x: u32, y: u32, mana: usize, max_mana: usize) -> Self {
         Actor { pos: Position { x, y }, mana, max_mana }
@@ -83,9 +89,9 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn step_from(&self, x: u32, y: u32) -> (u32, u32) {
+    pub fn step_from(self, x: u32, y: u32) -> (u32, u32) {
         use Direction::*;
-        match *self {
+        match self {
             North => (x, y + 1),
             NorthEast => (x + 1, y + 1),
             East => (x + 1, y),
@@ -95,6 +101,12 @@ impl Direction {
             West => (x - 1, y),
             NorthWest => (x - 1, y + 1),
         }
+    }
+}
+
+impl Default for Direction {
+    fn default() -> Self {
+        Direction::North
     }
 }
 
@@ -111,7 +123,7 @@ impl Default for Movement {
 }
 
 pub struct WalkSampler {
-    movements: [Movement; 9],
+    movements: [Movement; 8],
 }
 
 impl WalkSampler {
@@ -129,9 +141,14 @@ impl WalkSampler {
                 Walk(SouthWest),
                 Walk(West),
                 Walk(NorthWest),
-                None,
             ],
         }
+    }
+}
+
+impl Default for WalkSampler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -180,6 +197,7 @@ pub enum Heuristic {
     Manhattan,
     Chebyshev,
     DoubleManhattan,
+    Diagonal,
 }
 
 impl Heuristic {
@@ -190,11 +208,11 @@ impl Heuristic {
         let (dx, dy) = ((cx - gx).abs(), (cy - gy).abs());
 
         let estimate = match self {
-            Manhattan => dx + dy,
-            DoubleManhattan => 2 * (dx + dy),
-            Chebyshev => (dx + dy) - 1 * dx.min(dy),
+            Manhattan => 2 * (dx + dy),
+            DoubleManhattan => 4 * (dx + dy),
+            Chebyshev => (dx + dy) - dx.min(dy),
+            Diagonal => 2 * (dx + dy) - dx.min(dy),
         };
-
         estimate as usize
     }
 }
@@ -205,6 +223,7 @@ impl Display for Heuristic {
             Heuristic::Manhattan => write!(f, "Manhattan"),
             Heuristic::DoubleManhattan => write!(f, "Doubled-Manhattan"),
             Heuristic::Chebyshev => write!(f, "Chebyshev"),
+            Heuristic::Diagonal => write!(f, "Diagonal"),
         }
     }
 }
@@ -244,8 +263,8 @@ impl Model for TurnOptimal {
 
     /// Convergence occurs adjacent to the goal, not on the goal in this case
     fn converge(&self, current: &Self::State, goal: &Self::State) -> bool {
-        let (x, y) = (current.pos.x as i64, current.pos.y as i64);
-        let (gx, gy) = (goal.pos.x as i64, goal.pos.y as i64);
+        let (x, y) = (i64::from(current.pos.x), i64::from(current.pos.y));
+        let (gx, gy) = (i64::from(goal.pos.x), i64::from(goal.pos.y));
 
         (x - gx).abs() <= 1 && (y - gy).abs() <= 1
     }
@@ -269,8 +288,18 @@ impl Model for TurnOptimal {
     fn init(&mut self, _: &Self::State) {}
 
     #[inline(always)]
-    fn cost(&self, _current: &Self::State, _next: &Self::State) -> Self::Cost {
-        1
+    fn cost(
+        &self,
+        _current: &Self::State,
+        control: &Self::Control,
+        _next: &Self::State,
+    ) -> Self::Cost {
+        use Direction::*;
+        use Movement::*;
+        match control {
+            Walk(NorthEast) | Walk(SouthEast) | Walk(SouthWest) | Walk(NorthWest) => 3,
+            _ => 2,
+        }
     }
 }
 
