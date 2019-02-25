@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use game_lib::actor::Direction;
-use game_lib::path::{self, astar, Cost, HeuristicModel, Model, Optimizer, Sampler};
+use game_lib::path::{self, astar, HeuristicModel, Model, Optimizer, Sampler};
 use game_lib::Position;
 
 #[derive(Copy, Clone, Debug)]
@@ -242,9 +242,6 @@ full_path_bench! {
     },
     full_dijkstra_cardinal, "Zero Heuristic on Cardinal grid", Cardinal, Zero {
         Position::new(30, 12) => Position::new(0, 15)
-    },
-    full_octile_greedy, "Greedy octile path", Octile, Manhattan {
-        Position::new(30, 12) => Position::new(0, 15)
     }
 }
 
@@ -252,13 +249,16 @@ fn single_iter(c: &mut Criterion) {
     let mut map = map();
     let start = Position::new(31, 15);
     let goal = Position::new(0, 20);
-    let sampler = Octile;
+    let mut sampler = Octile;
 
     let mut planner: astar::AStar<BenchModel<Diagonal>> = astar::AStar::new();
     c.bench_function("Single octile iteration", move |b| {
-        b.iter(|| match planner.next_trajectory(&mut map, &start, &goal, &mut Octile) {
-            path::PathResult::Final(_) => planner.clear(),
-            _ => (),
+        b.iter(|| {
+            if let path::PathResult::Final(_) =
+                planner.next_trajectory(&mut map, &start, &goal, &mut sampler)
+            {
+                planner.clear();
+            }
         });
     });
 }
