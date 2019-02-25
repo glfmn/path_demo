@@ -36,6 +36,12 @@ impl Goal {
     }
 }
 
+impl Default for Goal {
+    fn default() -> Self {
+        Goal::None
+    }
+}
+
 impl Actor {
     pub fn new(x: u32, y: u32, mana: usize, max_mana: usize) -> Self {
         Actor { pos: Position { x, y }, mana, max_mana }
@@ -83,9 +89,9 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn step_from(&self, x: u32, y: u32) -> (u32, u32) {
+    pub fn step_from(self, x: u32, y: u32) -> (u32, u32) {
         use Direction::*;
-        match *self {
+        match self {
             North => (x, y + 1),
             NorthEast => (x + 1, y + 1),
             East => (x + 1, y),
@@ -137,6 +143,12 @@ impl WalkSampler {
                 Walk(NorthWest),
             ],
         }
+    }
+}
+
+impl Default for WalkSampler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -251,8 +263,8 @@ impl Model for TurnOptimal {
 
     /// Convergence occurs adjacent to the goal, not on the goal in this case
     fn converge(&self, current: &Self::State, goal: &Self::State) -> bool {
-        let (x, y) = (current.pos.x as i64, current.pos.y as i64);
-        let (gx, gy) = (goal.pos.x as i64, goal.pos.y as i64);
+        let (x, y) = (i64::from(current.pos.x), i64::from(current.pos.y));
+        let (gx, gy) = (i64::from(goal.pos.x), i64::from(goal.pos.y));
 
         (x - gx).abs() <= 1 && (y - gy).abs() <= 1
     }

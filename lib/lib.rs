@@ -17,8 +17,8 @@ impl Position {
     }
 
     pub fn square_dist(&self, other: Position) -> f64 {
-        let dx = self.x as f64 - other.x as f64;
-        let dy = self.y as f64 - other.y as f64;
+        let dx = f64::from(self.x) - f64::from(other.x);
+        let dy = f64::from(self.y) - f64::from(other.y);
 
         dx * dx + dy * dy
     }

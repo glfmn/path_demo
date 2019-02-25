@@ -223,7 +223,7 @@ impl Map {
 
         let mut size = 0;
         let mut queue = vec![(x, y)];
-        while queue.len() != 0 {
+        while queue.is_empty() {
             let (x, y) = queue.pop().unwrap();
             // prevent underflow
             for y in y.max(1) - 1..y + 2 {
@@ -318,7 +318,7 @@ where
                     let adjacency_1 = map.count_adjacent(x, y, 1, |tile| tile.is_wall());
                     let adjacency_2 = map.count_adjacent(x, y, 2, |tile| tile.is_wall());
 
-                    next[(x, y)] = if adjacency_1 >= 5 || adjacency_2 <= 0 {
+                    next[(x, y)] = if adjacency_1 >= 5 || adjacency_2 == 0 {
                         Tile::WALL
                     } else {
                         Tile::FLOOR
@@ -372,7 +372,7 @@ where
                 count += 1.0;
             }
         }
-        fill = count / (width as f64 * height as f64);
+        fill = count / (f64::from(width) * f64::from(height));
     }
     map
 }

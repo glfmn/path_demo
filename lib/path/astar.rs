@@ -1,12 +1,10 @@
 use std::fmt::{Debug, Formatter};
 
-use std::cmp::{Ord, Ordering, PartialEq, PartialOrd, Reverse};
-use std::collections::hash_map::Entry;
-use std::collections::{BinaryHeap, HashMap};
-use std::hash::{Hash, Hasher};
-
 use fnv::FnvHashMap;
 use radix_heap::RadixHeapMap;
+use std::cmp::{Ord, Ordering, PartialEq, PartialOrd, Reverse};
+use std::collections::hash_map::Entry;
+use std::hash::{Hash, Hasher};
 
 use super::*;
 
@@ -47,7 +45,7 @@ where
     M: Model,
 {
     fn clone(&self) -> Self {
-        Id { id: self.id.clone(), f: self.f.clone(), g: self.g.clone() }
+        Id { id: self.id, f: self.f.clone(), g: self.g.clone() }
     }
 }
 
@@ -234,7 +232,7 @@ where
                 let heuristic = model.heuristic(&child_state, goal);
 
                 let child = Node::<M> {
-                    id: Id::new(self.id_counter, cost.clone() + heuristic, cost),
+                    id: Id::new(self.id_counter, cost + heuristic, cost),
                     state: child_state,
                     control: control.clone(),
                 };
@@ -270,14 +268,10 @@ where
         let mut cost = M::Cost::default();
 
         // build up the trajectory by following the parent nodes
-        loop {
-            if let Some(p) = self.parent_map.get(&current.id) {
-                cost = cost + model.cost(&current.state, &current.control, &p.state);
-                current = (*p).clone();
-                result.push((current.state.clone(), current.control.clone()));
-            } else {
-                break;
-            }
+        while let Some(p) = self.parent_map.get(&current.id) {
+            cost = cost + model.cost(&current.state, &current.control, &p.state);
+            current = (*p).clone();
+            result.push((current.state.clone(), current.control.clone()));
         }
 
         result.reverse();
@@ -339,10 +333,8 @@ where
             });
         }
 
-        let heuristic = model.heuristic(start, goal);
         if self.queue.top().is_none() {
-            let heuristic = model.heuristic(start, goal);
-            let start_id = Id::new(0, heuristic, Default::default());
+            let start_id = Id::new(0, model.heuristic(start, goal), Default::default());
             self.queue.push(
                 Default::default(),
                 Node { id: start_id, state: start.clone(), control: Default::default() },
@@ -374,5 +366,15 @@ where
             //.field("grid", &self.grid)
             //.field("parent_map", &self.parent_map)
             .finish()
+    }
+}
+
+impl<M> Default for AStar<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }

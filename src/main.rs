@@ -1,4 +1,4 @@
-use slog::{crit, debug, error, info, o, trace, warn};
+use slog::{info, o};
 use slog::{Drain, Logger};
 
 use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
@@ -160,7 +160,7 @@ fn draw_agents(agent_layer: &mut Offscreen, player: &Option<Pos>, monster: &Opti
     }
 }
 
-fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
+fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &str) {
     use tcod::console::TextAlignment;
     ui_layer.clear();
     ui_layer.set_default_foreground(COLOR_GROUND_FG);
@@ -175,8 +175,7 @@ fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
     );
     ui_layer.set_alignment(TextAlignment::Left);
 
-    let mut y = 0;
-    for msg in &[
+    for (y, msg) in [
         "ESC           - quit",
         "DELETE        - generate a new map",
         "L/R Click     - place the monster and the goal",
@@ -186,15 +185,17 @@ fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
         "F1            - toggle heuristic functions",
         "F2            - toggle map visibility",
         "F3            - toggle preview-path visibility",
-    ] {
+    ]
+    .iter()
+    .enumerate()
+    {
         ui_layer.print_ex(
             2,
-            (TOP_BAR_HEIGHT + MAP_HEIGHT + 1 + y) as i32,
+            (TOP_BAR_HEIGHT + MAP_HEIGHT + 1 + y as u32) as i32,
             BackgroundFlag::Set,
             TextAlignment::Left,
             *msg,
         );
-        y += 1;
     }
 
     ui_layer.set_default_background(colors::BLACK);
@@ -214,11 +215,7 @@ fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &String) {
 
 fn overlaps_position(player: &Option<Pos>, mouse: &Pos) -> bool {
     if let Some(player) = player {
-        if player.x == mouse.x && player.y == mouse.y {
-            true
-        } else {
-            false
-        }
+        player.x == mouse.x && player.y == mouse.y
     } else {
         false
     }
@@ -266,7 +263,7 @@ fn main() {
 
     let mut cursor: Cursor = Default::default();
     let mut key = Default::default();
-    'main_loop: while !root.window_closed() {
+    while !root.window_closed() {
         match input::check_for_event(input::MOUSE | input::KEY_PRESS) {
             Some((_, Event::Mouse(m))) => cursor.update_mouse(m),
             Some((_, Event::Key(k))) => key = k,
