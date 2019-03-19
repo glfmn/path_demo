@@ -363,8 +363,8 @@ where
             .field("counter", &self.id_counter)
             .field("next", &self.queue.top())
             .field("queue", &self.queue)
-            //.field("grid", &self.grid)
-            //.field("parent_map", &self.parent_map)
+            .field("grid", &self.grid)
+            .field("parent_map", &self.parent_map)
             .finish()
     }
 }
