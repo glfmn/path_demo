@@ -3,100 +3,10 @@ use super::{Model, Optimizer, PathFindingErr, PathResult, Sampler, State, Trajec
 use fnv::FnvHashMap;
 use radix_heap::{Radix, RadixHeapMap};
 
-use std::cmp::{Ord, Ordering, PartialEq, PartialOrd, Reverse};
+use std::cmp::{PartialEq, Reverse};
 use std::collections::hash_map::Entry;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{self, Hash};
-
-struct Id<M>
-where
-    M: Model,
-{
-    id: usize,
-    g: Reverse<M::Cost>,
-}
-
-impl<M> Id<M>
-where
-    M: Model,
-{
-    fn new(id: usize, g: M::Cost) -> Self {
-        Id { id, g: Reverse(g) }
-    }
-}
-
-impl<M> PartialEq for Id<M>
-where
-    M: Model,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl<M> Eq for Id<M> where M: Model {}
-
-impl<M> Hash for Id<M>
-where
-    M: Model,
-{
-    fn hash<H: hash::Hasher>(&self, hasher: &mut H) {
-        self.id.hash(hasher);
-    }
-}
-
-impl<M> Clone for Id<M>
-where
-    M: Model,
-{
-    fn clone(&self) -> Self {
-        Id::new(self.id, self.g.0.clone())
-    }
-}
-
-impl<M> Debug for Id<M>
-where
-    M: Model,
-    M::Cost: Debug,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Id").field("id", &self.id).field("g", &self.g).finish()
-    }
-}
-
-struct Node<M>
-where
-    M: Model,
-{
-    id: Id<M>,
-    state: M::State,
-    control: M::Control,
-}
-
-impl<M> Clone for Node<M>
-where
-    M: Model,
-{
-    fn clone(&self) -> Self {
-        Node { id: self.id.clone(), state: self.state.clone(), control: self.control.clone() }
-    }
-}
-
-impl<M> Debug for Node<M>
-where
-    M: Model,
-    M::State: Debug,
-    M::Control: Debug,
-    M::Cost: Debug,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Node")
-            .field("id", &self.id)
-            .field("state", &self.state)
-            .field("control", &self.control)
-            .finish()
-    }
-}
 
 pub struct Dijkstra<M>
 where
@@ -260,5 +170,95 @@ where
         } else {
             Err(Unreachable)
         }
+    }
+}
+
+struct Id<M>
+where
+    M: Model,
+{
+    id: usize,
+    g: Reverse<M::Cost>,
+}
+
+impl<M> Id<M>
+where
+    M: Model,
+{
+    fn new(id: usize, g: M::Cost) -> Self {
+        Id { id, g: Reverse(g) }
+    }
+}
+
+impl<M> PartialEq for Id<M>
+where
+    M: Model,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<M> Eq for Id<M> where M: Model {}
+
+impl<M> Hash for Id<M>
+where
+    M: Model,
+{
+    fn hash<H: hash::Hasher>(&self, hasher: &mut H) {
+        self.id.hash(hasher);
+    }
+}
+
+impl<M> Clone for Id<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Id::new(self.id, self.g.0.clone())
+    }
+}
+
+impl<M> Debug for Id<M>
+where
+    M: Model,
+    M::Cost: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Id").field("id", &self.id).field("g", &self.g).finish()
+    }
+}
+
+struct Node<M>
+where
+    M: Model,
+{
+    id: Id<M>,
+    state: M::State,
+    control: M::Control,
+}
+
+impl<M> Clone for Node<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Node { id: self.id.clone(), state: self.state.clone(), control: self.control.clone() }
+    }
+}
+
+impl<M> Debug for Node<M>
+where
+    M: Model,
+    M::State: Debug,
+    M::Control: Debug,
+    M::Cost: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Node")
+            .field("id", &self.id)
+            .field("state", &self.state)
+            .field("control", &self.control)
+            .finish()
     }
 }
