@@ -245,6 +245,11 @@ where
     pub fn g(&self) -> M::Cost {
         self.g.clone()
     }
+
+    #[inline(always)]
+    pub fn f(&self) -> M::Cost {
+        self.f.0.clone()
+    }
 }
 
 impl<M> Clone for Id<M>
