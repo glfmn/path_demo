@@ -8,165 +8,6 @@ use std::hash::{Hash, Hasher};
 
 use super::*;
 
-/// The Id which identifies a particular node and allows for comparisons
-struct Id<M>
-where
-    M: Model,
-{
-    /// Simple integer ID which must be unique
-    id: usize,
-    /// Estimated cost including the heuristic
-    f: Reverse<M::Cost>,
-    /// Cost to arrive at this node following the parents
-    g: M::Cost,
-}
-
-impl<M> Id<M>
-where
-    M: Model,
-{
-    pub fn new(id: usize, f: M::Cost, g: M::Cost) -> Self {
-        Id { id, f: Reverse(f), g }
-    }
-
-    #[inline(always)]
-    pub fn g(&self) -> M::Cost {
-        self.g.clone()
-    }
-
-    #[inline(always)]
-    pub fn f(&self) -> M::Cost {
-        self.f.0.clone()
-    }
-}
-
-impl<M> Clone for Id<M>
-where
-    M: Model,
-{
-    fn clone(&self) -> Self {
-        Id { id: self.id, f: self.f.clone(), g: self.g.clone() }
-    }
-}
-
-impl<M> Hash for Id<M>
-where
-    M: Model,
-{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl<M> PartialEq for Id<M>
-where
-    M: Model,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.f == other.f
-    }
-}
-
-impl<M> Eq for Id<M> where M: Model {}
-
-impl<M> PartialOrd for Id<M>
-where
-    M: Model,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.f.cmp(&other.f))
-    }
-}
-
-impl<M> Ord for Id<M>
-where
-    M: Model,
-{
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.f.cmp(&other.f)
-    }
-}
-
-impl<M> Debug for Id<M>
-where
-    M: Model,
-    M::Cost: Debug,
-{
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
-        fmt.debug_struct("Id")
-            .field("g", &self.g)
-            .field("f", &self.f)
-            .field("id", &self.id)
-            .finish()
-    }
-}
-
-/// Nodes stored for planning
-struct Node<M>
-where
-    M: Model,
-{
-    id: Id<M>,
-    state: M::State,
-    control: M::Control,
-}
-
-impl<M> Clone for Node<M>
-where
-    M: Model,
-{
-    fn clone(&self) -> Self {
-        Node { id: self.id.clone(), state: self.state.clone(), control: self.control.clone() }
-    }
-}
-
-impl<M> PartialEq for Node<M>
-where
-    M: Model,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl<M> Eq for Node<M> where M: Model {}
-
-impl<M> PartialOrd for Node<M>
-where
-    M: Model,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.id.partial_cmp(&other.id)
-    }
-}
-
-impl<M> Ord for Node<M>
-where
-    M: Model,
-{
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.id.cmp(&other.id)
-    }
-}
-
-impl<M> Debug for Node<M>
-where
-    M: Model,
-    M::Cost: Debug,
-    M::State: Debug,
-    M::Control: Debug,
-{
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
-        fmt.debug_struct("Node")
-            .field("id", &self.id.id)
-            .field("g", &self.id.g)
-            .field("f", &self.id.f)
-            .field("state", &self.state)
-            .field("control", &self.control)
-            .finish()
-    }
-}
-
 pub struct AStar<M>
 where
     M: HeuristicModel,
@@ -376,5 +217,164 @@ where
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// The Id which identifies a particular node and allows for comparisons
+struct Id<M>
+where
+    M: Model,
+{
+    /// Simple integer ID which must be unique
+    id: usize,
+    /// Estimated cost including the heuristic
+    f: Reverse<M::Cost>,
+    /// Cost to arrive at this node following the parents
+    g: M::Cost,
+}
+
+impl<M> Id<M>
+where
+    M: Model,
+{
+    pub fn new(id: usize, f: M::Cost, g: M::Cost) -> Self {
+        Id { id, f: Reverse(f), g }
+    }
+
+    #[inline(always)]
+    pub fn g(&self) -> M::Cost {
+        self.g.clone()
+    }
+
+    #[inline(always)]
+    pub fn f(&self) -> M::Cost {
+        self.f.0.clone()
+    }
+}
+
+impl<M> Clone for Id<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Id { id: self.id, f: self.f.clone(), g: self.g.clone() }
+    }
+}
+
+impl<M> Hash for Id<M>
+where
+    M: Model,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl<M> PartialEq for Id<M>
+where
+    M: Model,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.f == other.f
+    }
+}
+
+impl<M> Eq for Id<M> where M: Model {}
+
+impl<M> PartialOrd for Id<M>
+where
+    M: Model,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.f.cmp(&other.f))
+    }
+}
+
+impl<M> Ord for Id<M>
+where
+    M: Model,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.f.cmp(&other.f)
+    }
+}
+
+impl<M> Debug for Id<M>
+where
+    M: Model,
+    M::Cost: Debug,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("Id")
+            .field("g", &self.g)
+            .field("f", &self.f)
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
+/// Nodes stored for planning
+struct Node<M>
+where
+    M: Model,
+{
+    id: Id<M>,
+    state: M::State,
+    control: M::Control,
+}
+
+impl<M> Clone for Node<M>
+where
+    M: Model,
+{
+    fn clone(&self) -> Self {
+        Node { id: self.id.clone(), state: self.state.clone(), control: self.control.clone() }
+    }
+}
+
+impl<M> PartialEq for Node<M>
+where
+    M: Model,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<M> Eq for Node<M> where M: Model {}
+
+impl<M> PartialOrd for Node<M>
+where
+    M: Model,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.id.partial_cmp(&other.id)
+    }
+}
+
+impl<M> Ord for Node<M>
+where
+    M: Model,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl<M> Debug for Node<M>
+where
+    M: Model,
+    M::Cost: Debug,
+    M::State: Debug,
+    M::Control: Debug,
+{
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("Node")
+            .field("id", &self.id.id)
+            .field("g", &self.id.g)
+            .field("f", &self.id.f)
+            .field("state", &self.state)
+            .field("control", &self.control)
+            .finish()
     }
 }
