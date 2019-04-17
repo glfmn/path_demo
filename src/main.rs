@@ -13,6 +13,9 @@ use rand_xorshift::XorShiftRng;
 use tcod::colors::{self, Color};
 use tcod::console::*;
 use tcod::input::{self, Event, Key, Mouse};
+use tui::Terminal;
+
+mod ui;
 
 /// Screen width in number of vertical columns of text
 const SCREEN_WIDTH: u32 = 120;
@@ -97,129 +100,6 @@ impl Into<(u32, u32)> for Cursor {
     }
 }
 
-fn draw_map(map_layer: &mut Offscreen, map: &Map) {
-    for y in 0..MAP_HEIGHT {
-        for x in 0..MAP_WIDTH {
-            let (char, fg_color, bg_color) = if map[(x, y)].is_wall() {
-                let count = map.count_adjacent(x, y, 1, |tile| !tile.is_wall());
-                if count == 0 {
-                    (' ', COLOR_CANVAS_BG, COLOR_CANVAS_BG)
-                } else {
-                    ('#', COLOR_WALL_FG, COLOR_WALL_BG)
-                }
-            } else {
-                ('.', COLOR_GROUND_FG, COLOR_GROUND_BG)
-            };
-            map_layer.put_char_ex(x as i32, y as i32, char, fg_color, bg_color);
-        }
-    }
-}
-
-fn draw_vis(
-    vis_layer: &mut Offscreen,
-    planner: &AStar<TurnOptimal>,
-    trajectory: &Trajectory<TurnOptimal>,
-    preview_traj: &Trajectory<TurnOptimal>,
-) {
-    vis_layer.set_default_background(COLOR_CANVAS_BG);
-    for Pos { x, y } in planner.inspect_discovered() {
-        vis_layer.put_char_ex(*x as i32, *y as i32, 177 as char, colors::RED, COLOR_GROUND_BG);
-    }
-
-    for (state, _) in planner.inspect_queue() {
-        let Pos { x, y } = state.grid_position();
-        vis_layer.put_char_ex(x as i32, y as i32, 178 as char, colors::GREEN, COLOR_GROUND_BG);
-    }
-
-    for (state, _) in preview_traj.trajectory.iter() {
-        let Pos { x, y } = state.grid_position();
-        vis_layer.set_char_background(x as i32, y as i32, colors::YELLOW, BackgroundFlag::Set);
-    }
-
-    for (state, _) in trajectory.trajectory.iter() {
-        let Pos { x, y } = state.grid_position();
-        vis_layer.put_char_ex(x as i32, y as i32, '+', colors::LIGHT_SKY, colors::BLUE);
-    }
-}
-
-fn draw_agents(agent_layer: &mut Offscreen, player: &Option<Pos>, monster: &Option<Actor>) {
-    if let Some(player) = &player {
-        let (x, y) = (player.x as i32, player.y as i32);
-        agent_layer.set_default_foreground(COLOR_PLAYER);
-        agent_layer.put_char(x, y, '@', BackgroundFlag::None);
-        agent_layer.horizontal_line(x + 1, y, 1, BackgroundFlag::None);
-        agent_layer.horizontal_line(x - 1, y, 1, BackgroundFlag::None);
-        agent_layer.vertical_line(x, y - 1, 1, BackgroundFlag::None);
-        agent_layer.vertical_line(x, y + 1, 1, BackgroundFlag::None);
-    }
-
-    if let Some(monster) = &monster {
-        let (x, y) = (monster.pos.x as i32, monster.pos.y as i32);
-        agent_layer.set_default_foreground(COLOR_MONSTER);
-        agent_layer.put_char(x, y, 'M', BackgroundFlag::None);
-    }
-}
-
-fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &str) {
-    ui_layer.clear();
-    ui_layer.set_default_foreground(COLOR_GROUND_FG);
-    ui_layer.set_default_background(COLOR_CANVAS_BG);
-
-    ui_layer.print_ex(
-        (SCREEN_WIDTH / 2) as i32,
-        0,
-        BackgroundFlag::Set,
-        TextAlignment::Center,
-        header,
-    );
-    ui_layer.set_alignment(TextAlignment::Left);
-
-    for (y, msg) in [
-        "ESC           - quit",
-        "DELETE        - generate a new map",
-        "L/R Click     - place the monster and the goal",
-        "ENTER         - plan one iteration",
-        "SHIFT + ENTER - plan all the way to the goal",
-        "BACKSPACE     - restart planning",
-        "F1            - toggle heuristic functions",
-        "F2            - toggle map visibility",
-        "F3            - toggle preview-path visibility",
-    ]
-    .iter()
-    .enumerate()
-    {
-        ui_layer.print_ex(
-            2,
-            (TOP_BAR_HEIGHT + MAP_HEIGHT + 1 + y as u32) as i32,
-            BackgroundFlag::Set,
-            TextAlignment::Left,
-            *msg,
-        );
-    }
-
-    ui_layer.set_default_background(colors::BLACK);
-    ui_layer.set_background_flag(BackgroundFlag::None);
-    ui_layer.set_key_color(colors::BLACK);
-
-    blit(
-        ui_layer,
-        (0, 0),
-        (SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32),
-        root,
-        (0, 0),
-        1f32,
-        1f32,
-    );
-}
-
-fn overlaps_position(player: &Option<Pos>, mouse: &Pos) -> bool {
-    if let Some(player) = player {
-        player.x == mouse.x && player.y == mouse.y
-    } else {
-        false
-    }
-}
-
 fn main() {
     let mut root = Root::initializer()
         .font("consolas12x12_gs_tc.png", FontLayout::Tcod)
@@ -238,181 +118,36 @@ fn main() {
 
     info!(logger, "Starting vis"; "seed" => format!("{:?}", seed));
 
-    let mut map_layer = Offscreen::new(MAP_WIDTH as i32, MAP_HEIGHT as i32);
-    let mut ui_layer = Offscreen::new(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32);
-
-    let mut monster: Option<Actor> = None;
-    let mut player: Option<Pos> = None;
-
-    let mut astar = AStar::<TurnOptimal>::new();
-    let mut sampler = WalkSampler::new();
-    let mut trajectory = Trajectory::<TurnOptimal>::default();
-    let mut converged = false;
-    let mut heuristic = Heuristic::Diagonal;
-
-    let mut preview = AStar::<TurnOptimal>::new();
-    let mut show_preview = true;
-    let mut preview_traj = Trajectory::<TurnOptimal>::default();
-
     tcod::system::set_fps(30);
-    tcod::input::show_cursor(false);
+    tcod::input::show_cursor(true);
+
+    let backend = ui::TCodBackend::new(root);
+    let mut terminal = Terminal::new(backend).unwrap();
 
     let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
     let mut render_map = true;
 
     let mut cursor: Cursor = Default::default();
     let mut key = Default::default();
-    while !root.window_closed() {
+    loop {
         match input::check_for_event(input::MOUSE | input::KEY_PRESS) {
             Some((_, Event::Mouse(m))) => cursor.update_mouse(m),
             Some((_, Event::Key(k))) => key = k,
             _ => key = Default::default(),
         }
 
-        use tcod::input::KeyCode::{Backspace, Delete, Enter, Escape, F1, F2, F3};
+        use tcod::input::KeyCode::Escape;
         match key {
             Key { code: Escape, .. } => break,
-            Key { code: Delete, .. } => {
-                astar.clear();
-                trajectory = Default::default();
-                preview_traj = Default::default();
-                map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
-                render_map = true;
-                monster = None;
-                player = None;
-                info!(logger, "New map generated");
-            }
-            Key { code: Backspace, .. } => {
-                astar.clear();
-                trajectory = Default::default();
-                converged = false;
-            }
-            Key { code: Enter, shift, .. } => {
-                if !converged {
-                    if let (Some(player), Some(monster)) = (&player, &monster) {
-                        let mut model = TurnOptimal::new(map);
-                        model.set_heuristic(heuristic.clone());
-                        let mut goal = monster.clone();
-                        goal.pos = player.clone();
-                        let result = if shift {
-                            astar.optimize(&mut model, &monster, &goal, &mut sampler)
-                        } else {
-                            astar.next_trajectory(&mut model, &monster, &goal, &mut sampler)
-                        };
-                        if let PathResult::Intermediate(traj) = result {
-                            trajectory = traj;
-                        } else if let PathResult::Final(traj) = result {
-                            trajectory = traj;
-                            converged = true;
-                            info!(
-                                logger,
-                                "Converged";
-                                "heuristic" => format!("{}", heuristic),
-                                "goal" => format!("({},{})", goal.pos.x, goal.pos.y),
-                                "start" => format!("({},{})", monster.pos.x, monster.pos.y),
-                                "cost" => trajectory.cost,
-                            );
-                        }
-                        map = model.return_map();
-                    }
-                }
-            }
-            Key { code: F1, .. } => {
-                astar.clear();
-                trajectory = Default::default();
-                converged = false;
-                match &heuristic {
-                    _ => heuristic = Heuristic::Diagonal,
-                }
-            }
-            Key { code: F2, .. } => {
-                render_map = !render_map;
-            }
-            Key { code: F3, .. } => {
-                show_preview = !show_preview;
-                if !show_preview {
-                    preview_traj.trajectory.clear();
-                }
-            }
             _ => (),
         };
 
-        let cursor_pos = cursor.as_position() - Pos::new(MAP_AREA.0 as u32, MAP_AREA.1 as u32);
-        if show_preview {
-            if let Some(monster) = &monster {
-                let mut model = TurnOptimal::new(map);
-                model.set_heuristic(heuristic.clone());
-                let mut goal = monster.clone();
-                goal.pos = cursor_pos.clone();
-                use game_lib::path::PathFindingErr;
-                preview.clear();
-                match preview.optimize(&mut model, monster, &goal, &mut sampler) {
-                    PathResult::Final(traj) => preview_traj = traj,
-                    PathResult::Err(PathFindingErr::Unreachable) => {
-                        preview_traj = Trajectory::default()
-                    }
-                    _ => (),
-                }
-                map = model.return_map();
-            }
-        }
-        if let Some(tile) = map.pos(&cursor_pos) {
-            if *tile == Tile::FLOOR {
-                if cursor.mouse.lbutton && !overlaps_position(&player, &cursor_pos) {
-                    astar = AStar::new();
-                    trajectory = Default::default();
-                    converged = false;
-                    monster = if let Some(mut monster) = monster {
-                        monster.pos.x = cursor_pos.x;
-                        monster.pos.y = cursor_pos.y;
-                        Some(monster)
-                    } else {
-                        Some(Actor::new(cursor_pos.x, cursor_pos.y, 100, 100))
-                    }
-                }
-
-                if cursor.mouse.rbutton
-                    && !overlaps_position(&monster.clone().map(|m| m.pos), &cursor_pos)
-                {
-                    astar = AStar::new();
-                    trajectory = Default::default();
-                    converged = false;
-                    player = if let Some(mut player) = player {
-                        player.x = cursor_pos.x;
-                        player.y = cursor_pos.y;
-                        Some(player)
-                    } else {
-                        Some(cursor_pos)
-                    }
-                }
-            }
-        }
-
-        let header = if player.is_none() || monster.is_none() {
-            "L-Click to place a monster R-Click to place a goal".into()
-        } else {
-            format!("Trajectory of cost {} with {} heuristic", trajectory.cost, heuristic)
-        };
-
-        root.clear();
-        root.set_default_background(COLOR_CANVAS_BG);
-        map_layer.clear();
-        if render_map {
-            draw_map(&mut map_layer, &map);
-        }
-        draw_vis(&mut map_layer, &astar, &trajectory, &preview_traj);
-        draw_agents(&mut map_layer, &player, &monster);
-        blit(
-            &map_layer,
-            (0, 0),
-            (MAP_WIDTH as i32, MAP_HEIGHT as i32),
-            &mut root,
-            MAP_AREA,
-            1f32,
-            1f32,
-        );
-        draw_ui(&mut root, &mut ui_layer, &header);
-        cursor.draw(&mut root, &map);
-        root.flush();
+        use tui::widgets::{Block, Borders, Widget};
+        terminal
+            .draw(|mut f| {
+                let size = f.size();
+                Block::default().borders(Borders::ALL).title("Test").render(&mut f, size);
+            })
+            .unwrap();
     }
 }
