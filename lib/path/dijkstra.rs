@@ -1,4 +1,3 @@
-#[allow(clippy::unused_imports)]
 use super::{Model, Optimizer, PathFindingErr, PathResult, Sampler, State, Trajectory};
 use fnv::FnvHashMap;
 use radix_heap::{Radix, RadixHeapMap};
