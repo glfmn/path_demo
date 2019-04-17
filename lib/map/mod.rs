@@ -194,16 +194,14 @@ impl Map {
     /// ```rust
     /// # use game_lib::map::*;
     /// # let mut map = Map::new(5, 5);
-    /// let is_wall = |tile: &Tile| tile.is_wall();
     /// let replace = Tile::WALL;
-    /// if is_wall(&replace) {
+    /// if replace.is_wall() {
     ///     assert_eq!(
     ///         Err(MapError::InfiniteLoop),
-    ///         map.flood_replace(1, 1, is_wall, replace),
+    ///         map.flood_replace(1, 1, Tile::is_wall, replace),
     ///     );
-    /// } else {
-    ///     panic!("will not cause an infinite loop");
     /// }
+    /// # else { unreachable!() }
     /// ```
     pub fn flood_replace<F>(
         &mut self,
@@ -315,8 +313,8 @@ where
             // use a celular automata algorithm to smooth the map
             for y in 1..(height - 1) {
                 for x in 1..(width - 1) {
-                    let adjacency_1 = map.count_adjacent(x, y, 1, |tile| tile.is_wall());
-                    let adjacency_2 = map.count_adjacent(x, y, 2, |tile| tile.is_wall());
+                    let adjacency_1 = map.count_adjacent(x, y, 1, Tile::is_wall);
+                    let adjacency_2 = map.count_adjacent(x, y, 2, Tile::is_wall);
 
                     next[(x, y)] = if adjacency_1 >= 5 || adjacency_2 == 0 {
                         Tile::WALL
@@ -333,7 +331,7 @@ where
             // use a celular automata algorithm to smooth the map
             for y in 1..(height - 1) {
                 for x in 1..(width - 1) {
-                    let count = map.count_adjacent(x, y, 1, |tile| tile.is_wall());
+                    let count = map.count_adjacent(x, y, 1, Tile::is_wall);
                     next[(x, y)] = if count >= 4 { Tile::WALL } else { Tile::FLOOR }
                 }
             }

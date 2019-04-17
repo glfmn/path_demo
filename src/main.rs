@@ -161,7 +161,6 @@ fn draw_agents(agent_layer: &mut Offscreen, player: &Option<Pos>, monster: &Opti
 }
 
 fn draw_ui(root: &mut Root, ui_layer: &mut Offscreen, header: &str) {
-    use tcod::console::TextAlignment;
     ui_layer.clear();
     ui_layer.set_default_foreground(COLOR_GROUND_FG);
     ui_layer.set_default_background(COLOR_CANVAS_BG);
