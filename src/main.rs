@@ -142,11 +142,34 @@ fn main() {
             _ => (),
         };
 
-        use tui::widgets::{Block, Borders, Widget};
+        use tui::widgets::*;
         terminal
             .draw(|mut f| {
                 let size = f.size();
-                Block::default().borders(Borders::ALL).title("Test").render(&mut f, size);
+                Chart::default()
+                    .block(Block::default().title("Chart").borders(Borders::ALL))
+                    .x_axis(Axis::default().title("X Axis").bounds([1., 4.]).labels(&[
+                        &format!("1"),
+                        &format!("2"),
+                        &format!("3"),
+                    ]))
+                    .y_axis(
+                        Axis::default()
+                            .title("Y Axis")
+                            .bounds([-20.0, 20.0])
+                            .labels(&["-20", "0", "20"]),
+                    )
+                    .datasets(&[
+                        Dataset::default()
+                            .name("data2")
+                            .marker(Marker::Dot)
+                            .data(&[(0.1, 0.3), (0.4, 0.5)]),
+                        Dataset::default()
+                            .name("data3")
+                            .marker(Marker::Braille)
+                            .data(&[(0.0, 1.0), (2.0, 0.4)]),
+                    ])
+                    .render(&mut f, size);
             })
             .unwrap();
     }

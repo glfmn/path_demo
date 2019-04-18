@@ -28,8 +28,6 @@ impl Backend for TCodBackend {
         I: Iterator<Item = (u16, u16, &'a Cell)>,
     {
         for (x, y, cell) in content {
-            println!("Content");
-            println!("{:?}", cell);
             let symbol = match cell.symbol.chars().next().unwrap() {
                 '─' => chars::HLINE,
                 '│' => chars::VLINE,
@@ -37,7 +35,12 @@ impl Backend for TCodBackend {
                 '┐' => chars::NE,
                 '┌' => chars::NW,
                 '└' => chars::SW,
-                symbol => symbol,
+                '⢀' => '.',
+                symbol => {
+                    println!("Content");
+                    println!("{:?}", cell);
+                    symbol
+                }
             };
             self.console.put_char_ex(
                 x as i32,
