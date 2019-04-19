@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use slog::{info, o};
 use slog::{Drain, Logger};
 
@@ -10,9 +12,9 @@ use game_lib::Position as Pos;
 use rand::{thread_rng, Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 
-use tcod::colors::{self, Color};
 use tcod::console::*;
 use tcod::input::{self, Event, Key, Mouse};
+use tui::style::{Color, Style};
 use tui::Terminal;
 
 mod ui;
@@ -31,18 +33,18 @@ const MAP_WIDTH: u32 = SCREEN_WIDTH;
 const MAP_HEIGHT: u32 = SCREEN_HEIGHT - TOP_BAR_HEIGHT - PANEL_HEIGHT - 1;
 const MAP_AREA: (i32, i32) = (0, TOP_BAR_HEIGHT as i32);
 
-const COLOR_CANVAS_BG: Color = Color { r: 94, g: 86, b: 76 };
+const COLOR_CANVAS_BG: Color = Color::Rgb(94, 86, 76);
 
 // Color of map tiles
-const COLOR_WALL_BG: Color = Color { r: 209, g: 178, b: 138 };
-const COLOR_WALL_FG: Color = Color { r: 130, g: 118, b: 101 };
-const COLOR_GROUND_FG: Color = Color { r: 254, g: 241, b: 224 };
-const COLOR_GROUND_BG: Color = Color { r: 246, g: 230, b: 206 };
+const COLOR_WALL_BG: Color = Color::Rgb(209, 178, 138);
+const COLOR_WALL_FG: Color = Color::Rgb(130, 118, 101);
+const COLOR_GROUND_FG: Color = Color::Rgb(254, 241, 224);
+const COLOR_GROUND_BG: Color = Color::Rgb(246, 230, 206);
 
 // Color of the cursor and other UI elements
-const COLOR_CURSOR: Color = colors::DARK_GREEN;
-const COLOR_MONSTER: Color = Color { r: 44, g: 200, b: 247 };
-const COLOR_PLAYER: Color = Color { r: 188, g: 7, b: 98 };
+const COLOR_CURSOR: Color = Color::Green;
+const COLOR_MONSTER: Color = Color::Rgb(44, 200, 247);
+const COLOR_PLAYER: Color = Color::Rgb(188, 7, 98);
 
 #[derive(PartialEq, Default)]
 struct Cursor {
@@ -54,26 +56,7 @@ impl Cursor {
         self.mouse = m;
     }
 
-    pub fn draw<C: Console>(&self, console: &mut C, map: &Map) {
-        let (x, y) = self.as_tuple();
-        let color = if let Some(tile) = map.get(x - MAP_AREA.0 as u32, y - MAP_AREA.1 as u32) {
-            if *tile == Tile::FLOOR {
-                COLOR_CURSOR
-            } else {
-                colors::RED
-            }
-        } else {
-            colors::WHITE
-        };
-
-        console.put_char(
-            self.mouse.cx as i32,
-            self.mouse.cy as i32,
-            'X',
-            BackgroundFlag::None,
-        );
-        console.set_char_foreground(self.mouse.cx as i32, self.mouse.cy as i32, color);
-    }
+    pub fn draw<C: Console>(&self, _: &mut C, _: &Map) {}
 
     #[inline]
     pub fn as_tuple(&self) -> (u32, u32) {
@@ -121,7 +104,7 @@ fn main() {
     tcod::system::set_fps(30);
     tcod::input::show_cursor(true);
 
-    let backend = ui::TCodBackend::new(root);
+    let backend = ui::TCodBackend::new(root, Style::default().bg(COLOR_CANVAS_BG));
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
@@ -129,6 +112,8 @@ fn main() {
 
     let mut cursor: Cursor = Default::default();
     let mut key = Default::default();
+
+    let mut offset = 0.0;
     loop {
         match input::check_for_event(input::MOUSE | input::KEY_PRESS) {
             Some((_, Event::Mouse(m))) => cursor.update_mouse(m),
@@ -146,6 +131,7 @@ fn main() {
         terminal
             .draw(|mut f| {
                 let size = f.size();
+                offset += 0.025;
                 Chart::default()
                     .block(Block::default().title("Chart").borders(Borders::ALL))
                     .x_axis(Axis::default().title("X Axis").bounds([1., 4.]).labels(&[
@@ -163,11 +149,29 @@ fn main() {
                         Dataset::default()
                             .name("data2")
                             .marker(Marker::Dot)
-                            .data(&[(0.1, 0.3), (0.4, 0.5)]),
+                            .style(Style::default().fg(Color::Magenta))
+                            .data(
+                                (1..100)
+                                    .map(|x| {
+                                        let x = x as f64 / 100. * 4.;
+                                        (x, 12. * (x + offset).sin())
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .as_slice(),
+                            ),
                         Dataset::default()
                             .name("data3")
                             .marker(Marker::Braille)
-                            .data(&[(0.0, 1.0), (2.0, 0.4)]),
+                            .style(Style::default().fg(Color::Cyan))
+                            .data(
+                                (1..100)
+                                    .map(|x| {
+                                        let x = x as f64 / 100. * 4.;
+                                        (x, 3. * x.sin() + 12. * (x + offset).cos())
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .as_slice(),
+                            ),
                     ])
                     .render(&mut f, size);
             })
