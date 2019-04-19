@@ -39,6 +39,9 @@ impl Backend for TCodBackend {
                 '⠐' | '⠈' => '`',
                 '⠂' | '⠁' => '`',
                 '•' => '*',
+                '▃' => chars::BLOCK1,
+                '▄' => chars::BLOCK2,
+                '█' => chars::BLOCK3,
                 symbol => {
                     if symbol != ' ' {
                         println!("Content");
