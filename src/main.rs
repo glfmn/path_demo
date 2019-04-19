@@ -25,13 +25,9 @@ const SCREEN_WIDTH: u32 = 120;
 /// Screen height in number of horizontal rows of text
 const SCREEN_HEIGHT: u32 = 80;
 
-const TOP_BAR_HEIGHT: u32 = 2;
-const PANEL_HEIGHT: u32 = 10;
-
 // Have the map consume the space not consumed by the GUI
 const MAP_WIDTH: u32 = SCREEN_WIDTH;
-const MAP_HEIGHT: u32 = SCREEN_HEIGHT - TOP_BAR_HEIGHT - PANEL_HEIGHT - 1;
-const MAP_AREA: (i32, i32) = (0, TOP_BAR_HEIGHT as i32);
+const MAP_HEIGHT: u32 = 50;
 
 const COLOR_CANVAS_BG: Color = Color::Rgb(94, 86, 76);
 
@@ -127,53 +123,52 @@ fn main() {
             _ => (),
         };
 
-        use tui::widgets::*;
         terminal
             .draw(|mut f| {
+                use crate::ui::widgets::MapView;
+
+                use tui::layout::{Constraint, Direction, Layout};
+                use tui::widgets::*;
+
                 let size = f.size();
                 offset += 0.025;
-                Chart::default()
-                    .block(Block::default().title("Chart").borders(Borders::ALL))
-                    .x_axis(Axis::default().title("X Axis").bounds([1., 4.]).labels(&[
-                        &format!("1"),
-                        &format!("2"),
-                        &format!("3"),
-                    ]))
-                    .y_axis(
-                        Axis::default()
-                            .title("Y Axis")
-                            .bounds([-20.0, 20.0])
-                            .labels(&["-20", "0", "20"]),
+
+                let layout = Layout::default()
+                    .direction(Direction::Vertical)
+                    .margin(1)
+                    .constraints(
+                        [
+                            Constraint::Length(2),
+                            Constraint::Max(MAP_HEIGHT as u16),
+                            Constraint::Min(0),
+                        ]
+                        .as_ref(),
                     )
-                    .datasets(&[
-                        Dataset::default()
-                            .name("data2")
-                            .marker(Marker::Dot)
-                            .style(Style::default().fg(Color::Magenta))
-                            .data(
-                                (1..100)
-                                    .map(|x| {
-                                        let x = x as f64 / 100. * 4.;
-                                        (x, 12. * (x + offset).sin())
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .as_slice(),
-                            ),
-                        Dataset::default()
-                            .name("data3")
-                            .marker(Marker::Braille)
-                            .style(Style::default().fg(Color::Cyan))
-                            .data(
-                                (1..100)
-                                    .map(|x| {
-                                        let x = x as f64 / 100. * 4.;
-                                        (x, 3. * x.sin() + 12. * (x + offset).cos())
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .as_slice(),
-                            ),
-                    ])
-                    .render(&mut f, size);
+                    .split(size);
+
+                let map_layout = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(
+                        [Constraint::Percentage(50), Constraint::Percentage(30)].as_ref(),
+                    )
+                    .split(layout[1]);
+                Block::default()
+                    .title("Path-finding Visualization")
+                    .borders(Borders::TOP)
+                    .render(&mut f, layout[0]);
+                MapView::new(&map, |count, tile| {
+                    if count == 0 {
+                        (' ', Style::default())
+                    } else {
+                        if tile.is_wall() {
+                            ('#', Style::default().fg(COLOR_WALL_FG).bg(COLOR_WALL_BG))
+                        } else {
+                            ('.', Style::default().fg(COLOR_GROUND_FG).bg(COLOR_GROUND_BG))
+                        }
+                    }
+                })
+                .block(Block::default().title("Map").borders(Borders::ALL))
+                .render(&mut f, map_layout[0]);
             })
             .unwrap();
     }
