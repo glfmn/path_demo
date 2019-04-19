@@ -35,10 +35,15 @@ impl Backend for TCodBackend {
                 '┐' => chars::NE,
                 '┌' => chars::NW,
                 '└' => chars::SW,
-                '⢀' => '.',
+                '⢀' | '⠄' | '⠠' | '⡀' => '.',
+                '⠐' | '⠈' => '`',
+                '⠂' | '⠁' => '`',
+                '•' => '*',
                 symbol => {
-                    println!("Content");
-                    println!("{:?}", cell);
+                    if symbol != ' ' {
+                        println!("Content");
+                        println!("{:?}", cell);
+                    }
                     symbol
                 }
             };
