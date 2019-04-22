@@ -49,8 +49,8 @@ pub struct Map {
 impl Map {
     /// Create a new Map of blocking tiles
     ///
-    /// The default map is impossible to traverse, with the assumption that areas will be carved
-    /// out of the map.
+    /// The default map is impossible to traverse, with the assumption that areas will be
+    /// carved out of the map.
     pub fn new(width: u32, height: u32) -> Self {
         let tiles = vec![Tile::WALL; (width * height) as usize];
         Map { tiles, width, height }
@@ -148,8 +148,8 @@ impl Map {
 
     /// Return a set of adjacent tiles which satisfy a predicate
     ///
-    /// If the first tile does not match the predicate, then the selection exits early and returns
-    /// an empty set.
+    /// If the first tile does not match the predicate, then the selection exits early and
+    /// returns an empty set.
     pub fn flood_select<F>(&self, x: u32, y: u32, predicate: F) -> HashSet<(u32, u32)>
     where
         F: Fn(&Tile) -> bool,
