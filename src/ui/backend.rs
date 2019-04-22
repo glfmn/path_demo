@@ -57,26 +57,26 @@ impl Backend for TCodBackend {
         I: Iterator<Item = (u16, u16, &'a Cell)>,
     {
         for (x, y, cell) in content {
-            let symbol = match cell.symbol.chars().next().unwrap() {
-                '─' => chars::HLINE,
-                '│' => chars::VLINE,
-                '┘' => chars::SE,
-                '┐' => chars::NE,
-                '┌' => chars::NW,
-                '└' => chars::SW,
-                '⢀' | '⠄' | '⠠' | '⡀' => '.',
-                '⠐' | '⠈' => '`',
-                '⠂' | '⠁' => '`',
-                '•' => '*',
-                '▃' => chars::BLOCK1,
-                '▄' => chars::BLOCK2,
-                '█' => chars::BLOCK3,
+            let symbol = match cell.symbol.as_str() {
+                "─" => chars::HLINE,
+                "│" => chars::VLINE,
+                "┘" => chars::SE,
+                "┐" => chars::NE,
+                "┌" => chars::NW,
+                "└" => chars::SW,
+                "⢀" | "⠄" | "⠠" | "⡀" => '.',
+                "⠐" | "⠈" => '`',
+                "⠂" | "⠁" => '`',
+                "•" => '*',
+                "▃" => chars::BLOCK1,
+                "▄" => chars::BLOCK2,
+                "█" => chars::BLOCK3,
                 symbol => {
-                    if symbol != ' ' {
+                    if symbol != " " {
                         println!("Content");
                         println!("{:?}", cell);
                     }
-                    symbol
+                    symbol.chars().next().unwrap()
                 }
             };
             let fg = tui_to_tcod_color(cell.style.fg, self.reset_colors.0);
