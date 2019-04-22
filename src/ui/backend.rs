@@ -56,42 +56,8 @@ impl Backend for TCodBackend {
     where
         I: Iterator<Item = (u16, u16, &'a Cell)>,
     {
-        use tui::symbols::{self, bar, block, line};
         for (x, y, cell) in content {
-            let symbol = match cell.symbol.as_str() {
-                // Symbols for box drawing
-                line::HORIZONTAL => chars::HLINE,
-                line::VERTICAL => chars::VLINE,
-                line::BOTTOM_RIGHT => chars::SE,
-                line::TOP_RIGHT => chars::NE,
-                line::TOP_LEFT => chars::NW,
-                line::BOTTOM_LEFT => chars::SW,
-                line::VERTICAL_LEFT => '┤',
-                line::VERTICAL_RIGHT => '├',
-                line::HORIZONTAL_DOWN => '┬',
-                line::HORIZONTAL_UP => '┴',
-                // "Braille" marker
-                "⢀" | "⠄" | "⠠" | "⡀" => '.',
-                "⠐" | "⠈" => '`',
-                "⠂" | "⠁" => '`',
-                // Dot that appears in charts, etc.
-                symbols::DOT => '*',
-                // Vertical bars in a bar graph, limited resolution
-                bar::ONE_EIGHTH | bar::ONE_QUATER | bar::THREE_EIGHTHS => chars::BLOCK1,
-                bar::HALF | bar::FIVE_EIGHTHS | bar::THREE_QUATERS => chars::BLOCK2,
-                bar::SEVEN_EIGHTHS | bar::FULL => chars::BLOCK3,
-                // Horizontal bars in a bar graph, limited resolution
-                line::ONE_EIGHTH | line::ONE_QUATER | line::THREE_EIGHTHS => chars::BLOCK1,
-                line::HALF | line::FIVE_EIGHTHS | line::THREE_QUATERS => chars::BLOCK2,
-                line::SEVEN_EIGHTHS | line::FULL => chars::BLOCK3,
-                symbol => {
-                    if symbol != " " {
-                        println!("Content");
-                        println!("{:?}", cell);
-                    }
-                    symbol.chars().next().unwrap()
-                }
-            };
+            let symbol = tui_to_tcod_symbol(cell.symbol.as_str());
             let fg = tui_to_tcod_color(cell.style.fg, self.reset_colors.0);
             let bg = tui_to_tcod_color(cell.style.bg, self.reset_colors.1);
             self.console.put_char_ex(x as i32, y as i32, symbol, fg, bg);
@@ -159,5 +125,45 @@ fn tui_to_tcod_color(color: TuiColor, default: TCodColor) -> TCodColor {
         LightCyan => colors::LIGHT_CYAN,
         White => colors::WHITE,
         Rgb(r, g, b) => TCodColor { r, g, b },
+    }
+}
+
+fn tui_to_tcod_symbol(symbol: &str) -> char {
+    use tui::symbols::{self, bar, block, line};
+    match symbol {
+        // Symbols for box drawing
+        line::HORIZONTAL => chars::HLINE,
+        line::VERTICAL => chars::VLINE,
+        line::BOTTOM_RIGHT => chars::SE,
+        line::TOP_RIGHT => chars::NE,
+        line::TOP_LEFT => chars::NW,
+        line::BOTTOM_LEFT => chars::SW,
+        line::VERTICAL_LEFT => chars::TEEW,
+        line::VERTICAL_RIGHT => chars::TEEE,
+        line::HORIZONTAL_DOWN => chars::TEES,
+        line::HORIZONTAL_UP => chars::TEEN,
+        // "Braille" marker on charts
+        "⢀" | "⠄" | "⠠" | "⡀" => '.',
+        "⠐" | "⠈" => '`',
+        "⠂" | "⠁" => '`',
+        // Dot that appears in charts, etc.
+        symbols::DOT => '*',
+        // Vertical bars in a bar graph, limited resolution
+        bar::ONE_EIGHTH | bar::ONE_QUATER | bar::THREE_EIGHTHS => chars::BLOCK1,
+        bar::HALF | bar::FIVE_EIGHTHS | bar::THREE_QUATERS => chars::BLOCK2,
+        bar::SEVEN_EIGHTHS | bar::FULL => chars::BLOCK3,
+        // Horizontal bars in a bar graph, limited resolution
+        block::ONE_EIGHTH | block::ONE_QUATER | block::THREE_EIGHTHS => chars::BLOCK1,
+        block::HALF | block::FIVE_EIGHTHS | block::THREE_QUATERS => chars::BLOCK2,
+        block::SEVEN_EIGHTHS | block::FULL => chars::BLOCK3,
+        symbol => {
+            #[cfg(debug_assertions)]
+            {
+                if symbol != " " {
+                    eprintln!("Content: {:?}", symbol);
+                }
+            }
+            symbol.chars().next().unwrap()
+        }
     }
 }
