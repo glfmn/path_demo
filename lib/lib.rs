@@ -81,3 +81,63 @@ macro_rules! impl_conversion {
 }
 
 impl_conversion!(u32, u64, usize, i32, isize, i64);
+
+/// A rectangular area
+///
+/// Useful to create relative tansforms, converting positions relative to the area
+/// of the rectangle to positions in the parent space of the rectangle.
+pub struct Rect {
+    /// The top left position of the rectangle
+    pub pos: Position,
+    /// The width of the rectangle
+    pub w: u32,
+    /// The height of the rectangle
+    pub h: u32,
+}
+
+impl Rect {
+    pub fn new<P: Into<Position>>(pos: P, w: u32, h: u32) -> Self {
+        Rect { pos: pos.into(), w, h }
+    }
+
+    /// Create a rectangle whose top-left is at the origin
+    pub fn origin(w: u32, h: u32) -> Self {
+        Rect { pos: Position::new(0, 0), w, h }
+    }
+
+    /// Calculate the global position of a position inside the rectangle
+    ///
+    /// Returns `None` when the position falls outside of the Rectangle's area.
+    ///
+    /// A position in the rectangle at `(0, 0)` is just the top-left coordinate of
+    /// the rectangle.
+    ///
+    /// ```
+    /// # use game_lib::{ Position, Rect };
+    /// let pos = Position::new(0, 0);
+    /// let rect = Rect::new(Position::new(10, 10), 10, 10);
+    /// assert_eq!(rect.transform(&pos), Some(rect.pos));
+    /// ````
+    ///
+    /// A rectangle at the origin does not change positions transformed to its
+    /// coordinates.
+    ///
+    /// ```
+    /// # use game_lib::{ Position, Rect };
+    /// let zero = Rect::origin(10, 10);
+    ///
+    /// let pos = Position::new(1, 1);
+    /// assert_eq!(zero.transform(&pos), Some(pos));
+    ///
+    /// // Positions out of bounds are still None
+    /// let out_of_bounds = Position::new(11, 11);
+    /// assert_eq!(zero.transform(&out_of_bounds), None);
+    /// ```
+    pub fn transform(&self, pos: &Position) -> Option<Position> {
+        if pos.x > self.w || pos.y > self.h {
+            None
+        } else {
+            Some(self.pos.clone() + pos.clone())
+        }
+    }
+}
