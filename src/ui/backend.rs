@@ -56,21 +56,34 @@ impl Backend for TCodBackend {
     where
         I: Iterator<Item = (u16, u16, &'a Cell)>,
     {
+        use tui::symbols::{self, bar, block, line};
         for (x, y, cell) in content {
             let symbol = match cell.symbol.as_str() {
-                "─" => chars::HLINE,
-                "│" => chars::VLINE,
-                "┘" => chars::SE,
-                "┐" => chars::NE,
-                "┌" => chars::NW,
-                "└" => chars::SW,
+                // Symbols for box drawing
+                line::HORIZONTAL => chars::HLINE,
+                line::VERTICAL => chars::VLINE,
+                line::BOTTOM_RIGHT => chars::SE,
+                line::TOP_RIGHT => chars::NE,
+                line::TOP_LEFT => chars::NW,
+                line::BOTTOM_LEFT => chars::SW,
+                line::VERTICAL_LEFT => '┤',
+                line::VERTICAL_RIGHT => '├',
+                line::HORIZONTAL_DOWN => '┬',
+                line::HORIZONTAL_UP => '┴',
+                // "Braille" marker
                 "⢀" | "⠄" | "⠠" | "⡀" => '.',
                 "⠐" | "⠈" => '`',
                 "⠂" | "⠁" => '`',
-                "•" => '*',
-                "▃" => chars::BLOCK1,
-                "▄" => chars::BLOCK2,
-                "█" => chars::BLOCK3,
+                // Dot that appears in charts, etc.
+                symbols::DOT => '*',
+                // Vertical bars in a bar graph, limited resolution
+                bar::ONE_EIGHTH | bar::ONE_QUATER | bar::THREE_EIGHTHS => chars::BLOCK1,
+                bar::HALF | bar::FIVE_EIGHTHS | bar::THREE_QUATERS => chars::BLOCK2,
+                bar::SEVEN_EIGHTHS | bar::FULL => chars::BLOCK3,
+                // Horizontal bars in a bar graph, limited resolution
+                line::ONE_EIGHTH | line::ONE_QUATER | line::THREE_EIGHTHS => chars::BLOCK1,
+                line::HALF | line::FIVE_EIGHTHS | line::THREE_QUATERS => chars::BLOCK2,
+                line::SEVEN_EIGHTHS | line::FULL => chars::BLOCK3,
                 symbol => {
                     if symbol != " " {
                         println!("Content");
