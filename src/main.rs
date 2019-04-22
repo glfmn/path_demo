@@ -104,7 +104,6 @@ fn main() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
-    let mut render_map = true;
 
     let mut cursor: Cursor = Default::default();
     let mut key = Default::default();
@@ -139,7 +138,7 @@ fn main() {
                     .constraints(
                         [
                             Constraint::Length(2),
-                            Constraint::Max(MAP_HEIGHT as u16),
+                            Constraint::Length(MAP_HEIGHT as u16 + 2),
                             Constraint::Min(0),
                         ]
                         .as_ref(),
