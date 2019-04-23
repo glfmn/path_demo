@@ -145,4 +145,19 @@ impl Rect {
             Some(self.pos.clone() + pos.clone())
         }
     }
+
+    pub fn contains(&self, pos: &Position) -> bool {
+        pos.x >= self.pos.x
+            && pos.y >= self.pos.y
+            && pos.x <= self.pos.x + self.w
+            && pos.y <= self.pos.y + self.h
+    }
+
+    pub fn transform_to_local(&self, pos: &Position) -> Option<Position> {
+        if self.contains(pos) {
+            Some(pos.clone() - self.pos.clone())
+        } else {
+            None
+        }
+    }
 }

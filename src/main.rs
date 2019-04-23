@@ -26,8 +26,8 @@ const SCREEN_WIDTH: u32 = 120;
 const SCREEN_HEIGHT: u32 = 80;
 
 // Have the map consume the space not consumed by the GUI
-const MAP_WIDTH: u32 = SCREEN_WIDTH;
-const MAP_HEIGHT: u32 = 50;
+const MAP_WIDTH: u32 = SCREEN_WIDTH * 2;
+const MAP_HEIGHT: u32 = SCREEN_HEIGHT * 2;
 
 const COLOR_CANVAS_BG: Color = Color::Rgb(94, 86, 76);
 
@@ -42,7 +42,7 @@ const COLOR_CURSOR: Color = Color::Green;
 const COLOR_MONSTER: Color = Color::Rgb(44, 200, 247);
 const COLOR_PLAYER: Color = Color::Rgb(188, 7, 98);
 
-#[derive(PartialEq, Default)]
+#[derive(PartialEq, Default, Clone)]
 struct Cursor {
     mouse: Mouse,
 }
@@ -79,6 +79,33 @@ impl Into<(u32, u32)> for Cursor {
     }
 }
 
+struct Settings {
+    tabs: Vec<String>,
+    selected: usize,
+}
+
+struct App {
+    pub map_pos: Pos,
+    pub map: Map,
+    pub settings: Settings,
+}
+
+impl App {
+    pub fn handle_event() {}
+}
+
+fn style_map(count: usize, tile: &Tile) -> (char, Style) {
+    if count == 0 {
+        (' ', Style::default())
+    } else {
+        if tile.is_wall() {
+            ('#', Style::default().fg(COLOR_WALL_FG).bg(COLOR_WALL_BG))
+        } else {
+            ('.', Style::default().fg(COLOR_GROUND_FG).bg(COLOR_GROUND_BG))
+        }
+    }
+}
+
 fn main() {
     let mut root = Root::initializer()
         .font("consolas12x12_gs_tc.png", FontLayout::Tcod)
@@ -110,22 +137,13 @@ fn main() {
 
     let mut offset = 0.0;
     let mut map_pos = Pos::zero();
+    let mut select = 0;
     loop {
         match input::check_for_event(input::MOUSE | input::KEY_PRESS) {
             Some((_, Event::Mouse(m))) => cursor.update_mouse(m),
             Some((_, Event::Key(k))) => key = k,
             _ => key = Default::default(),
         }
-
-        use tcod::input::KeyCode::{Down, Escape, Left, Right, Up};
-        match key {
-            Key { code: Escape, .. } => break,
-            Key { code: Right, .. } => map_pos.x = map_pos.x + 1,
-            Key { code: Left, .. } => map_pos.x = map_pos.x.max(1) - 1,
-            Key { code: Up, .. } => map_pos.y = map_pos.y.max(1) - 1,
-            Key { code: Down, .. } => map_pos.y = map_pos.y + 1,
-            _ => (),
-        };
 
         terminal
             .draw(|mut f| {
@@ -143,7 +161,7 @@ fn main() {
                     .constraints(
                         [
                             Constraint::Length(2),
-                            Constraint::Length(MAP_HEIGHT as u16 + 2),
+                            Constraint::Percentage(80),
                             Constraint::Min(0),
                         ]
                         .as_ref(),
@@ -160,21 +178,45 @@ fn main() {
                     .title("Path-finding Visualization")
                     .borders(Borders::TOP)
                     .render(&mut f, layout[0]);
-                MapView::new(&map, |count, tile| {
-                    if count == 0 {
-                        (' ', Style::default())
-                    } else {
-                        if tile.is_wall() {
-                            ('#', Style::default().fg(COLOR_WALL_FG).bg(COLOR_WALL_BG))
-                        } else {
-                            ('.', Style::default().fg(COLOR_GROUND_FG).bg(COLOR_GROUND_BG))
-                        }
-                    }
-                })
-                .block(Block::default().title("Map").borders(Borders::ALL))
-                .map_position(map_pos.clone())
-                .render(&mut f, map_layout[0]);
+                MapView::new(&map, style_map)
+                    .block(Block::default().title("Map").borders(Borders::ALL))
+                    .map_position(map_pos.clone())
+                    .position_callback(cursor.clone().into(), |p| println!("{:?}", p))
+                    .render(&mut f, map_layout[0]);
+
+                let mut settings = Block::default().title("Settings").borders(Borders::ALL);
+                let settings_layout = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Length(2), Constraint::Min(0)].as_ref())
+                    .split(settings.inner(map_layout[1]));
+                settings.render(&mut f, map_layout[1]);
+
+                Tabs::default()
+                    .titles(&["Visualization", "Model", "Map"])
+                    .select(select)
+                    .block(Block::default().borders(Borders::BOTTOM))
+                    .highlight_style(Style::default().fg(Color::Yellow))
+                    .render(&mut f, settings_layout[0]);
+
+                Block::default().title("Log").borders(Borders::ALL).render(&mut f, layout[2]);
             })
             .unwrap();
+
+        use tcod::input::KeyCode::Escape;
+        match key {
+            Key { code: Escape, .. } => break,
+            _ => (),
+        };
+
+        use tcod::input::KeyCode::{Down, Left, Right, Tab, Up};
+
+        match key {
+            Key { code: Right, .. } => map_pos.x = map_pos.x + 1,
+            Key { code: Left, .. } => map_pos.x = map_pos.x.max(1) - 1,
+            Key { code: Up, .. } => map_pos.y = map_pos.y.max(1) - 1,
+            Key { code: Down, .. } => map_pos.y = map_pos.y + 1,
+            Key { code: Tab, .. } => select = (select + 1) % 3,
+            _ => (),
+        }
     }
 }

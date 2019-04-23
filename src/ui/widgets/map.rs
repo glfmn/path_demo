@@ -7,22 +7,37 @@ use tui::layout::{Layout, Rect};
 use tui::style::Style;
 use tui::widgets::{Block, Widget};
 
-pub struct MapView<'a, F>
+use std::collections::{HashMap, HashSet};
+
+pub struct MapView<'a, F, M>
 where
     F: Fn(usize, &Tile) -> (char, Style),
+    M: Fn(Option<Position>),
 {
     map: &'a Map,
     map_pos: Position,
     block: Option<Block<'a>>,
+    visualization: Option<Visualization>,
     style_fn: F,
+    mouse_position: Option<Position>,
+    mouse_callback: Option<M>,
 }
 
-impl<'a, F> MapView<'a, F>
+impl<'a, F, M> MapView<'a, F, M>
 where
     F: Fn(usize, &Tile) -> (char, Style),
+    M: Fn(Option<Position>),
 {
     pub fn new(map: &'a Map, style_fn: F) -> Self {
-        MapView { map, style_fn, block: None, map_pos: Position::zero() }
+        MapView {
+            map,
+            style_fn,
+            block: None,
+            map_pos: Position::zero(),
+            visualization: None,
+            mouse_position: None,
+            mouse_callback: None,
+        }
     }
 
     pub fn block(mut self, block: Block<'a>) -> Self {
@@ -39,11 +54,23 @@ where
         self.map_pos = map_pos.clone();
         self
     }
+
+    pub fn visualization(mut self, vis: Visualization) -> Self {
+        self.visualization = Some(vis);
+        self
+    }
+
+    pub fn position_callback(mut self, mouse_position: Position, callback: M) -> Self {
+        self.mouse_callback = Some(callback);
+        self.mouse_position = Some(mouse_position);
+        self
+    }
 }
 
-impl<'a, F> Widget for MapView<'a, F>
+impl<'a, F, M> Widget for MapView<'a, F, M>
 where
     F: Fn(usize, &Tile) -> (char, Style),
+    M: Fn(Option<Position>),
 {
     fn draw(&mut self, area: Rect, buf: &mut Buffer) {
         let map_area = match self.block {
@@ -77,5 +104,40 @@ where
                 buf.get_mut(x as u16, y as u16).set_symbol(symbol).set_style(style);
             }
         }
+
+        use tui::layout::{Constraint, Direction, Layout};
+        use tui::widgets::*;
+
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(5 + 2), Constraint::Min(0)].as_ref())
+            .split(map_area);
+
+        let legend_area = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
+            .split(layout[0])[1];
+
+        let mut legend = Block::default().title("Legend").borders(Borders::ALL);
+        legend.draw(legend_area, buf);
+        let legend_area = legend.inner(legend_area);
+        for y in legend_area.top()..legend_area.bottom() {
+            buf.get_mut(legend_area.left(), y).set_symbol("#");
+        }
+
+        if let (Some(mouse_pos), Some(callback)) = (&self.mouse_position, &self.mouse_callback)
+        {
+            (callback)(
+                screen_coord
+                    .transform_to_local(mouse_pos)
+                    .and_then(|p| map_coord.transform(&p)),
+            );
+        }
     }
+}
+
+pub struct Visualization {
+    queue: HashMap<Position, usize>,
+    visited: HashSet<Position>,
+    trajectory: Vec<Position>,
 }
