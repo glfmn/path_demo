@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::ops::{Index, IndexMut};
 
-use super::Position;
+use super::{Position, Rect};
 
 /// A Tile on the map
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,6 +241,11 @@ impl Map {
 
         Ok(size)
     }
+
+    /// Iterate over the tiles inside a rectangular area contained in the map
+    pub fn iter_rect<'a>(&'a self, area: Rect) -> MapArea<'a> {
+        MapArea { x: 0, y: 0, area, map: self }
+    }
 }
 
 impl Index<(u32, u32)> for Map {
@@ -288,6 +293,38 @@ impl IndexMut<Position> for Map {
 
         let index = self.sub2ind(x, y);
         &mut self.tiles[index]
+    }
+}
+
+/// Iterate over the tiles inside a rectangular area contained in the map
+///
+/// See `Map::iter_rect`
+pub struct MapArea<'a> {
+    x: u32,
+    y: u32,
+    area: Rect,
+    map: &'a Map,
+}
+
+impl<'a> Iterator for MapArea<'a> {
+    type Item = (Position, &'a Tile);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let pos = (self.x, self.y).into();
+        if self.y < self.area.h {
+            if self.x < self.area.w {
+                self.x += 1;
+            } else {
+                self.x = 0;
+                self.y += 1;
+            }
+        } else {
+            return None;
+        }
+
+        self.area
+            .transform(&pos)
+            .and_then(|map_pos| self.map.pos(&map_pos).map(|tile| (pos, tile)))
     }
 }
 

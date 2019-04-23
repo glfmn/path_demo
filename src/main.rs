@@ -109,6 +109,7 @@ fn main() {
     let mut key = Default::default();
 
     let mut offset = 0.0;
+    let mut map_pos = Pos::zero();
     loop {
         match input::check_for_event(input::MOUSE | input::KEY_PRESS) {
             Some((_, Event::Mouse(m))) => cursor.update_mouse(m),
@@ -116,9 +117,13 @@ fn main() {
             _ => key = Default::default(),
         }
 
-        use tcod::input::KeyCode::Escape;
+        use tcod::input::KeyCode::{Down, Escape, Left, Right, Up};
         match key {
             Key { code: Escape, .. } => break,
+            Key { code: Right, .. } => map_pos.x = map_pos.x + 1,
+            Key { code: Left, .. } => map_pos.x = map_pos.x.max(1) - 1,
+            Key { code: Up, .. } => map_pos.y = map_pos.y.max(1) - 1,
+            Key { code: Down, .. } => map_pos.y = map_pos.y + 1,
             _ => (),
         };
 
@@ -148,7 +153,7 @@ fn main() {
                 let map_layout = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints(
-                        [Constraint::Percentage(50), Constraint::Percentage(30)].as_ref(),
+                        [Constraint::Percentage(70), Constraint::Percentage(30)].as_ref(),
                     )
                     .split(layout[1]);
                 Block::default()
@@ -167,6 +172,7 @@ fn main() {
                     }
                 })
                 .block(Block::default().title("Map").borders(Borders::ALL))
+                .map_position(map_pos.clone())
                 .render(&mut f, map_layout[0]);
             })
             .unwrap();

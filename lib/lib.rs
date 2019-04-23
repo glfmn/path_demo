@@ -16,6 +16,10 @@ impl Position {
         Position { x, y }
     }
 
+    pub fn zero() -> Self {
+        Position { x: 0, y: 0 }
+    }
+
     pub fn square_dist(&self, other: Position) -> f64 {
         let dx = f64::from(self.x) - f64::from(other.x);
         let dy = f64::from(self.y) - f64::from(other.y);
@@ -80,12 +84,13 @@ macro_rules! impl_conversion {
     };
 }
 
-impl_conversion!(u32, u64, usize, i32, isize, i64);
+impl_conversion!(u8, u16, u32, u64, usize, i16, i32, isize, i64);
 
 /// A rectangular area
 ///
 /// Useful to create relative tansforms, converting positions relative to the area
 /// of the rectangle to positions in the parent space of the rectangle.
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Rect {
     /// The top left position of the rectangle
     pub pos: Position,
