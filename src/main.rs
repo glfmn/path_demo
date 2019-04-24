@@ -90,6 +90,8 @@ struct App {
     pub settings: Settings,
     pub monster: Option<Actor>,
     pub player: Option<Actor>,
+    pub astar: AStar<TurnOptimal>,
+    pub trajectory: Trajectory<TurnOptimal>,
 }
 
 impl App {
@@ -99,6 +101,7 @@ impl App {
             .and_then(|p| self.map.pos(&p.pos).map(|t| !t.is_wall()))
             .unwrap_or(false)
         {
+            self.clear();
             self.player = player;
         }
     }
@@ -109,8 +112,42 @@ impl App {
             .and_then(|p| self.map.pos(&p.pos).map(|t| !t.is_wall()))
             .unwrap_or(false)
         {
+            self.clear();
             self.monster = monster;
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.astar.clear();
+        self.trajectory = Trajectory::default();
+    }
+
+    pub fn step(mut self) -> Self {
+        if let (Some(ref player), Some(ref monster)) = (&self.player, &self.monster) {
+            let mut model = TurnOptimal::new(self.map);
+            model.set_heuristic(Heuristic::Diagonal);
+            let mut goal = player.clone();
+            let mut sampler = WalkSampler::new();
+            let result = self.astar.next_trajectory(&mut model, &monster, &goal, &mut sampler);
+            if let PathResult::Intermediate(traj) = result {
+                self.trajectory = traj;
+            } else if let PathResult::Final(traj) = result {
+                self.trajectory = traj;
+                /*
+                info!(
+                    logger,
+                    "Converged";
+                    "heuristic" => format!("{}", heuristic),
+                    "goal" => format!("({},{})", goal.pos.x, goal.pos.y),
+                    "start" => format!("({},{})", monster.pos.x, monster.pos.y),
+                    "cost" => trajectory.cost,
+                );
+                */
+            }
+            self.map = model.return_map();
+        }
+
+        self
     }
 }
 
@@ -162,6 +199,8 @@ fn main() {
         },
         monster: None,
         player: None,
+        astar: AStar::default(),
+        trajectory: Trajectory::default(),
     };
 
     loop {
@@ -173,7 +212,7 @@ fn main() {
 
         terminal
             .draw(|mut f| {
-                use crate::ui::widgets::MapView;
+                use crate::ui::widgets::{MapView, Visualization};
 
                 use tui::layout::{Constraint, Direction, Layout};
                 use tui::widgets::*;
@@ -184,12 +223,8 @@ fn main() {
                     .direction(Direction::Vertical)
                     .margin(1)
                     .constraints(
-                        [
-                            Constraint::Length(2),
-                            Constraint::Percentage(80),
-                            Constraint::Min(0),
-                        ]
-                        .as_ref(),
+                        [Constraint::Length(2), Constraint::Min(80), Constraint::Min(0)]
+                            .as_ref(),
                     )
                     .split(size);
 
@@ -208,7 +243,24 @@ fn main() {
                 let mut monster = None;
                 let mut map_view = MapView::new(&app.map, style_map)
                     .block(Block::default().title("Map").borders(Borders::ALL))
-                    .map_position(app.map_pos.clone());
+                    .map_position(app.map_pos.clone())
+                    .trajectory_style(Style::default().fg(Color::Cyan).bg(Color::LightBlue))
+                    .visited_style(Style::default().fg(Color::Red).bg(COLOR_GROUND_BG))
+                    .queue_style(Style::default().fg(Color::Green).bg(COLOR_GROUND_BG))
+                    .visualization(Visualization {
+                        queue: app
+                            .astar
+                            .inspect_queue()
+                            .map(|(s, _)| (s.pos.clone(), 0))
+                            .collect(),
+                        visited: app.astar.inspect_discovered().cloned().collect(),
+                        trajectory: app
+                            .trajectory
+                            .trajectory
+                            .iter()
+                            .map(|(s, _)| s.pos.clone())
+                            .collect(),
+                    });
 
                 if let Some(player) = &app.player {
                     map_view = map_view.player(
@@ -253,7 +305,7 @@ fn main() {
                     .highlight_style(Style::default().fg(Color::Yellow))
                     .render(&mut f, settings_layout[0]);
 
-                Block::default().title("Log").borders(Borders::ALL).render(&mut f, layout[2]);
+                //Block::default().title("Log").borders(Borders::ALL).render(&mut f, layout[2]);
             })
             .unwrap();
 
@@ -263,7 +315,7 @@ fn main() {
             _ => (),
         };
 
-        use tcod::input::KeyCode::{Down, Left, Right, Tab, Up};
+        use tcod::input::KeyCode::{Down, Enter, Left, Right, Tab, Up};
 
         match key {
             Key { code: Right, .. } => app.map_pos.x = app.map_pos.x + 1,
@@ -271,6 +323,7 @@ fn main() {
             Key { code: Up, .. } => app.map_pos.y = app.map_pos.y.max(1) - 1,
             Key { code: Down, .. } => app.map_pos.y = app.map_pos.y + 1,
             Key { code: Tab, .. } => app.settings.selected = (app.settings.selected + 1) % 3,
+            Key { code: Enter, .. } => app = app.step(),
             _ => (),
         }
     }

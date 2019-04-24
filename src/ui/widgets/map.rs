@@ -24,6 +24,9 @@ where
     mouse_callback: Option<M>,
     player: Option<(Actor, &'a str, Style)>,
     monster: Option<(Actor, &'a str, Style)>,
+    visited_style: Option<Style>,
+    queue_style: Option<Style>,
+    trajectory_style: Option<Style>,
 }
 
 impl<'a, F, M> MapView<'a, F, M>
@@ -42,6 +45,9 @@ where
             mouse_callback: None,
             player: None,
             monster: None,
+            visited_style: None,
+            queue_style: None,
+            trajectory_style: None,
         }
     }
 
@@ -80,6 +86,20 @@ where
         self.mouse_position = Some(mouse_position);
         self
     }
+    pub fn visited_style(mut self, s: Style) -> Self {
+        self.visited_style = Some(s);
+        self
+    }
+
+    pub fn queue_style(mut self, s: Style) -> Self {
+        self.queue_style = Some(s);
+        self
+    }
+
+    pub fn trajectory_style(mut self, s: Style) -> Self {
+        self.trajectory_style = Some(s);
+        self
+    }
 }
 
 impl<'a, F, M> Widget for MapView<'a, F, M>
@@ -115,12 +135,50 @@ where
                 .unwrap_or(0);
             let (glyph, style) = (self.style_fn)(count, tile);
             let symbol = glyph.encode_utf8(&mut sym_buff);
-            if let Some(Position { x, y }) = screen_coord.transform(&pos).into() {
+            if let Some(Position { x, y }) = screen_coord.transform(&pos) {
                 buf.get_mut(x as u16, y as u16).set_symbol(symbol).set_style(style);
             }
         }
 
+        if let Some(Visualization { queue, visited, trajectory }) = &self.visualization {
+            use tui::symbols;
+            for pos in visited.iter() {
+                if let Some(Position { x, y }) = map_coord
+                    .transform_to_local(pos)
+                    .and_then(|pos| screen_coord.transform(&pos))
+                {
+                    let style = &self.visited_style.unwrap_or(Style::default());
+                    buf.get_mut(x as u16, y as u16)
+                        .set_symbol(symbols::bar::HALF)
+                        .set_style(*style);
+                }
+            }
+
+            for pos in queue.keys() {
+                if let Some(Position { x, y }) = map_coord
+                    .transform_to_local(pos)
+                    .and_then(|pos| screen_coord.transform(&pos))
+                {
+                    let style = &self.queue_style.unwrap_or(Style::default());
+                    buf.get_mut(x as u16, y as u16)
+                        .set_symbol(symbols::bar::HALF)
+                        .set_style(*style);
+                }
+            }
+
+            for pos in trajectory.iter() {
+                if let Some(Position { x, y }) = map_coord
+                    .transform_to_local(pos)
+                    .and_then(|pos| screen_coord.transform(&pos))
+                {
+                    let style = &self.trajectory_style.unwrap_or(Style::default());
+                    buf.get_mut(x as u16, y as u16).set_symbol("+").set_style(*style);
+                }
+            }
+        }
+
         use tui::layout::{Constraint, Direction, Layout};
+        use tui::symbols::*;
         use tui::widgets::*;
 
         let layout = Layout::default()
@@ -144,15 +202,19 @@ where
         }
 
         if let Some((monster, symbol, style)) = &self.monster {
-            let pos = monster.pos.clone() - self.map_pos.clone();
-            if let Some(Position { x, y }) = screen_coord.transform(&pos) {
+            let pos = map_coord
+                .transform_to_local(&monster.pos)
+                .and_then(|p| screen_coord.transform(&p));
+            if let Some(Position { x, y }) = pos {
                 buf.get_mut(x as u16, y as u16).set_symbol(symbol).set_style(*style);
             }
         }
 
         if let Some((player, symbol, style)) = &self.player {
-            let pos = player.pos.clone() - self.map_pos.clone();
-            if let Some(Position { x, y }) = screen_coord.transform(&pos) {
+            let pos = map_coord
+                .transform_to_local(&player.pos)
+                .and_then(|p| screen_coord.transform(&p));
+            if let Some(Position { x, y }) = pos {
                 buf.get_mut(x as u16, y as u16).set_symbol(symbol).set_style(*style);
             }
         }
@@ -167,7 +229,7 @@ where
 }
 
 pub struct Visualization {
-    queue: HashMap<Position, usize>,
-    visited: HashSet<Position>,
-    trajectory: Vec<Position>,
+    pub queue: HashMap<Position, usize>,
+    pub visited: HashSet<Position>,
+    pub trajectory: Vec<Position>,
 }

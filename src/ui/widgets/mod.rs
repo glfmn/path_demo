@@ -1,3 +1,3 @@
 mod map;
 
-pub use map::MapView;
+pub use map::{MapView, Visualization};
