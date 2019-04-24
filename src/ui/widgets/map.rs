@@ -126,6 +126,16 @@ where
         );
 
         let mut sym_buff = [0, 0, 0, 0];
+        let mut legend_entries: Vec<(String, Style, &str)> =
+            vec![(Tile::WALL, "wall"), (Tile::FLOOR, "floor")]
+                .iter()
+                .map(|(tile, name)| {
+                    let (glyph, sty) = (self.style_fn)(1, &tile);
+                    let sym = glyph.encode_utf8(&mut sym_buff).to_string();
+                    (sym, sty, *name)
+                })
+                .collect();
+
         for (pos, tile) in self.map.iter_rect(map_coord.clone()) {
             let count = map_coord
                 .transform(&pos)
@@ -142,54 +152,43 @@ where
 
         if let Some(Visualization { queue, visited, trajectory }) = &self.visualization {
             use tui::symbols;
+            let style = &self.visited_style.unwrap_or(Style::default());
+            legend_entries.push((symbols::bar::HALF.to_string(), *style, "visited"));
             for pos in visited.iter() {
                 if let Some(Position { x, y }) = map_coord
                     .transform_to_local(pos)
                     .and_then(|pos| screen_coord.transform(&pos))
                 {
-                    let style = &self.visited_style.unwrap_or(Style::default());
                     buf.get_mut(x as u16, y as u16)
                         .set_symbol(symbols::bar::HALF)
                         .set_style(*style);
                 }
             }
 
+            let style = &self.queue_style.unwrap_or(Style::default());
+            legend_entries.push((symbols::bar::HALF.to_string(), *style, "queued"));
             for pos in queue.keys() {
                 if let Some(Position { x, y }) = map_coord
                     .transform_to_local(pos)
                     .and_then(|pos| screen_coord.transform(&pos))
                 {
-                    let style = &self.queue_style.unwrap_or(Style::default());
                     buf.get_mut(x as u16, y as u16)
                         .set_symbol(symbols::bar::HALF)
                         .set_style(*style);
                 }
             }
 
+            let style = &self.trajectory_style.unwrap_or(Style::default());
+            legend_entries.push(("+".to_string(), *style, "trajectory"));
             for pos in trajectory.iter() {
                 if let Some(Position { x, y }) = map_coord
                     .transform_to_local(pos)
                     .and_then(|pos| screen_coord.transform(&pos))
                 {
-                    let style = &self.trajectory_style.unwrap_or(Style::default());
                     buf.get_mut(x as u16, y as u16).set_symbol("+").set_style(*style);
                 }
             }
         }
-
-        use tui::layout::{Constraint, Direction, Layout};
-        use tui::symbols::*;
-        use tui::widgets::*;
-
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(5 + 2), Constraint::Min(0)].as_ref())
-            .split(map_area);
-
-        let legend_area = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
-            .split(layout[0])[1];
 
         if let (Some(mouse_pos), Some(callback)) =
             (&self.mouse_position, &mut self.mouse_callback)
@@ -202,6 +201,7 @@ where
         }
 
         if let Some((monster, symbol, style)) = &self.monster {
+            legend_entries.push((symbol.to_string(), *style, "start"));
             let pos = map_coord
                 .transform_to_local(&monster.pos)
                 .and_then(|p| screen_coord.transform(&p));
@@ -211,6 +211,7 @@ where
         }
 
         if let Some((player, symbol, style)) = &self.player {
+            legend_entries.push((symbol.to_string(), *style, "goal"));
             let pos = map_coord
                 .transform_to_local(&player.pos)
                 .and_then(|p| screen_coord.transform(&p));
@@ -219,11 +220,37 @@ where
             }
         }
 
+        use tui::layout::{Constraint, Direction, Layout};
+        use tui::symbols::*;
+        use tui::widgets::*;
+
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(
+                [Constraint::Length(legend_entries.len() as u16 + 2), Constraint::Min(0)]
+                    .as_ref(),
+            )
+            .split(map_area);
+
+        let legend_area = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
+            .split(layout[0])[1];
+
         let mut legend = Block::default().title("Legend").borders(Borders::ALL);
         legend.draw(legend_area, buf);
         let legend_area = legend.inner(legend_area);
         for y in legend_area.top()..legend_area.bottom() {
-            buf.get_mut(legend_area.left(), y).set_symbol("#");
+            for x in legend_area.left()..legend_area.right() {
+                buf.get_mut(x, y).set_symbol(" ").set_style(Style::default());
+            }
+        }
+        for (y, (symbol, style, text)) in
+            (legend_area.top()..legend_area.bottom()).zip(legend_entries.iter())
+        {
+            let x = legend_area.left();
+            buf.get_mut(x, y).set_symbol(symbol).set_style(*style);
+            buf.set_string(x + 2, y, text, Style::default())
         }
     }
 }
