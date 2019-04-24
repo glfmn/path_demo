@@ -81,20 +81,47 @@ impl Into<(u32, u32)> for Cursor {
 
 use crate::ui::widgets::Visualization;
 
-struct Settings {
-    tabs: Vec<String>,
-    selected: usize,
+#[derive(Debug, Clone, Copy)]
+pub enum SelectionState {
+    Map(SettingsTab),
+    Settings(SettingsTab),
 }
 
-// pub enum AppState {
-//     Planning {},
-// }
+impl Default for SelectionState {
+    fn default() -> Self {
+        SelectionState::Map(SettingsTab::Visualization(VisSetting::MapVisibility))
+    }
+}
 
+#[derive(Debug, Clone, Copy)]
+pub enum SettingsTab {
+    Visualization(VisSetting),
+    Model(ModelSetting),
+    Map(MapSetting),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum VisSetting {
+    MapVisibility,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ModelSetting {
+    Sampler,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MapSetting {
+    Width,
+    Height,
+    GenerateNew,
+}
+
+#[derive(Debug)]
 struct App {
-    // pub state: AppState,
+    pub state: SelectionState,
     pub map_pos: Pos,
     pub map: Map,
-    pub settings: Settings,
     pub monster: Option<Actor>,
     pub player: Option<Actor>,
     pub astar: AStar<TurnOptimal>,
@@ -173,7 +200,7 @@ impl App {
                 let mut goal = player.clone();
                 let mut sampler = WalkSampler::new();
                 self.trajectory =
-                    self.astar.next_trajectory(&mut model, &monster, &goal, &mut sampler);
+                    self.astar.optimize(&mut model, &monster, &goal, &mut sampler);
                 self.map = model.return_map();
             }
         }
@@ -182,20 +209,60 @@ impl App {
     }
 
     pub fn update(mut self, event: Key) -> Self {
-        use tcod::input::KeyCode::{Down, Enter, Left, Right, Tab, Up};
+        use tcod::input::KeyCode::*;
 
-        match event {
-            Key { code: Right, .. } => self.map_pos.x = self.map_pos.x + 1,
-            Key { code: Left, .. } => self.map_pos.x = self.map_pos.x.max(1) - 1,
-            Key { code: Up, .. } => self.map_pos.y = self.map_pos.y.max(1) - 1,
-            Key { code: Down, .. } => self.map_pos.y = self.map_pos.y + 1,
-            Key { code: Tab, .. } => self.settings.selected = (self.settings.selected + 1) % 3,
-            Key { code: Enter, .. } => self = self.step(),
-            Key { code: Enter, shift: true, .. } => self = self.complete_plan(),
-            _ => (),
-        };
+        if let Key { code: Tab, shift: true, .. } = event {
+            use SelectionState::*;
+            self.state = match self.state {
+                Map(s) => Settings(s),
+                Settings(s) => Map(s),
+            };
+        }
+
+        match &self.state {
+            SelectionState::Map(_) => {
+                match event {
+                    Key { code: Right, .. } => self.map_pos.x = self.map_pos.x + 1,
+                    Key { code: Left, .. } => self.map_pos.x = self.map_pos.x.max(1) - 1,
+                    Key { code: Up, .. } => self.map_pos.y = self.map_pos.y.max(1) - 1,
+                    Key { code: Down, .. } => self.map_pos.y = self.map_pos.y + 1,
+                    Key { code: Enter, shift: true, .. } => self = self.complete_plan(),
+                    Key { code: Enter, .. } => self = self.step(),
+                    Key { code: Backspace, .. } => self.clear(),
+                    _ => (),
+                };
+            }
+            SelectionState::Settings(t) => match event {
+                Key { code: Tab, shift: false, .. } => {
+                    use SettingsTab::*;
+                    self.state = SelectionState::Settings(match t {
+                        Model(_) => Map(MapSetting::Width),
+                        Visualization(_) => Model(ModelSetting::Sampler),
+                        Map(_) => Visualization(VisSetting::MapVisibility),
+                    })
+                }
+                _ => (),
+            },
+        }
 
         self
+    }
+
+    pub fn selected_tab(&self) -> usize {
+        let tab = {
+            use SelectionState::*;
+            match self.state {
+                Map(t) => t,
+                Settings(t) => t,
+            }
+        };
+
+        use SettingsTab::{Map, *};
+        match tab {
+            Visualization(_) => 0,
+            Model(_) => 1,
+            Map(_) => 2,
+        }
     }
 }
 
@@ -239,12 +306,9 @@ fn main() {
     let mut key = Default::default();
 
     let mut app = App {
+        state: SelectionState::default(),
         map_pos: Pos::zero(),
         map: generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT),
-        settings: Settings {
-            tabs: vec!["Visualization".to_string(), "Model".to_string(), "Map".to_string()],
-            selected: 0,
-        },
         monster: None,
         player: None,
         astar: AStar::default(),
@@ -334,8 +398,8 @@ fn main() {
                 settings.render(&mut f, map_layout[1]);
 
                 Tabs::default()
-                    .titles(&app.settings.tabs)
-                    .select(app.settings.selected)
+                    .titles(&vec!["Visualization", "Model", "Map"])
+                    .select(app.selected_tab())
                     .block(Block::default().borders(Borders::BOTTOM))
                     .highlight_style(Style::default().fg(Color::Yellow))
                     .render(&mut f, settings_layout[0]);
