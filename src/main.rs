@@ -79,19 +79,26 @@ impl Into<(u32, u32)> for Cursor {
     }
 }
 
+use crate::ui::widgets::Visualization;
+
 struct Settings {
     tabs: Vec<String>,
     selected: usize,
 }
 
+// pub enum AppState {
+//     Planning {},
+// }
+
 struct App {
+    // pub state: AppState,
     pub map_pos: Pos,
     pub map: Map,
     pub settings: Settings,
     pub monster: Option<Actor>,
     pub player: Option<Actor>,
     pub astar: AStar<TurnOptimal>,
-    pub trajectory: Trajectory<TurnOptimal>,
+    pub trajectory: PathResult<TurnOptimal>,
 }
 
 impl App {
@@ -119,33 +126,74 @@ impl App {
 
     pub fn clear(&mut self) {
         self.astar.clear();
-        self.trajectory = Trajectory::default();
+        self.trajectory = PathResult::Intermediate(Trajectory::default());
+    }
+
+    pub fn trajectory(&self) -> Vec<Pos> {
+        match &self.trajectory {
+            PathResult::Intermediate(t) => t,
+            PathResult::Final(t) => t,
+            _ => return Vec::new(),
+        }
+        .trajectory
+        .iter()
+        .map(|(s, _)| s.pos.clone())
+        .collect()
+    }
+
+    pub fn visualization(&self) -> Visualization {
+        Visualization {
+            queue: self.astar.inspect_queue().map(|(s, _)| (s.pos.clone(), 0)).collect(),
+            visited: self.astar.inspect_discovered().cloned().collect(),
+            trajectory: self.trajectory(),
+        }
     }
 
     pub fn step(mut self) -> Self {
         if let (Some(ref player), Some(ref monster)) = (&self.player, &self.monster) {
-            let mut model = TurnOptimal::new(self.map);
-            model.set_heuristic(Heuristic::Diagonal);
-            let mut goal = player.clone();
-            let mut sampler = WalkSampler::new();
-            let result = self.astar.next_trajectory(&mut model, &monster, &goal, &mut sampler);
-            if let PathResult::Intermediate(traj) = result {
-                self.trajectory = traj;
-            } else if let PathResult::Final(traj) = result {
-                self.trajectory = traj;
-                /*
-                info!(
-                    logger,
-                    "Converged";
-                    "heuristic" => format!("{}", heuristic),
-                    "goal" => format!("({},{})", goal.pos.x, goal.pos.y),
-                    "start" => format!("({},{})", monster.pos.x, monster.pos.y),
-                    "cost" => trajectory.cost,
-                );
-                */
+            if let PathResult::Intermediate(_) = &self.trajectory {
+                let mut model = TurnOptimal::new(self.map);
+                model.set_heuristic(Heuristic::Diagonal);
+                let mut goal = player.clone();
+                let mut sampler = WalkSampler::new();
+                self.trajectory =
+                    self.astar.next_trajectory(&mut model, &monster, &goal, &mut sampler);
+                self.map = model.return_map();
             }
-            self.map = model.return_map();
         }
+
+        self
+    }
+
+    pub fn complete_plan(mut self) -> Self {
+        if let (Some(ref player), Some(ref monster)) = (&self.player, &self.monster) {
+            if let PathResult::Intermediate(_) = &self.trajectory {
+                let mut model = TurnOptimal::new(self.map);
+                model.set_heuristic(Heuristic::Diagonal);
+                let mut goal = player.clone();
+                let mut sampler = WalkSampler::new();
+                self.trajectory =
+                    self.astar.next_trajectory(&mut model, &monster, &goal, &mut sampler);
+                self.map = model.return_map();
+            }
+        }
+
+        self
+    }
+
+    pub fn update(mut self, event: Key) -> Self {
+        use tcod::input::KeyCode::{Down, Enter, Left, Right, Tab, Up};
+
+        match event {
+            Key { code: Right, .. } => self.map_pos.x = self.map_pos.x + 1,
+            Key { code: Left, .. } => self.map_pos.x = self.map_pos.x.max(1) - 1,
+            Key { code: Up, .. } => self.map_pos.y = self.map_pos.y.max(1) - 1,
+            Key { code: Down, .. } => self.map_pos.y = self.map_pos.y + 1,
+            Key { code: Tab, .. } => self.settings.selected = (self.settings.selected + 1) % 3,
+            Key { code: Enter, .. } => self = self.step(),
+            Key { code: Enter, shift: true, .. } => self = self.complete_plan(),
+            _ => (),
+        };
 
         self
     }
@@ -200,7 +248,7 @@ fn main() {
         monster: None,
         player: None,
         astar: AStar::default(),
-        trajectory: Trajectory::default(),
+        trajectory: PathResult::Intermediate(Trajectory::default()),
     };
 
     loop {
@@ -212,7 +260,7 @@ fn main() {
 
         terminal
             .draw(|mut f| {
-                use crate::ui::widgets::{MapView, Visualization};
+                use crate::ui::widgets::MapView;
 
                 use tui::layout::{Constraint, Direction, Layout};
                 use tui::widgets::*;
@@ -247,20 +295,7 @@ fn main() {
                     .trajectory_style(Style::default().fg(Color::Cyan).bg(Color::LightBlue))
                     .visited_style(Style::default().fg(Color::Red).bg(COLOR_GROUND_BG))
                     .queue_style(Style::default().fg(Color::Green).bg(COLOR_GROUND_BG))
-                    .visualization(Visualization {
-                        queue: app
-                            .astar
-                            .inspect_queue()
-                            .map(|(s, _)| (s.pos.clone(), 0))
-                            .collect(),
-                        visited: app.astar.inspect_discovered().cloned().collect(),
-                        trajectory: app
-                            .trajectory
-                            .trajectory
-                            .iter()
-                            .map(|(s, _)| s.pos.clone())
-                            .collect(),
-                    });
+                    .visualization(app.visualization());
 
                 if let Some(player) = &app.player {
                     map_view = map_view.player(
@@ -305,26 +340,14 @@ fn main() {
                     .highlight_style(Style::default().fg(Color::Yellow))
                     .render(&mut f, settings_layout[0]);
 
-                //Block::default().title("Log").borders(Borders::ALL).render(&mut f, layout[2]);
+                Block::default().title("Log").borders(Borders::ALL).render(&mut f, layout[2]);
             })
             .unwrap();
 
         use tcod::input::KeyCode::Escape;
         match key {
             Key { code: Escape, .. } => break,
-            _ => (),
+            key => app = app.update(key),
         };
-
-        use tcod::input::KeyCode::{Down, Enter, Left, Right, Tab, Up};
-
-        match key {
-            Key { code: Right, .. } => app.map_pos.x = app.map_pos.x + 1,
-            Key { code: Left, .. } => app.map_pos.x = app.map_pos.x.max(1) - 1,
-            Key { code: Up, .. } => app.map_pos.y = app.map_pos.y.max(1) - 1,
-            Key { code: Down, .. } => app.map_pos.y = app.map_pos.y + 1,
-            Key { code: Tab, .. } => app.settings.selected = (app.settings.selected + 1) % 3,
-            Key { code: Enter, .. } => app = app.step(),
-            _ => (),
-        }
     }
 }
