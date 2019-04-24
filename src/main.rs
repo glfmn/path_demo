@@ -88,10 +88,30 @@ struct App {
     pub map_pos: Pos,
     pub map: Map,
     pub settings: Settings,
+    pub monster: Option<Actor>,
+    pub player: Option<Actor>,
 }
 
 impl App {
-    pub fn handle_event() {}
+    pub fn update_player(&mut self, player: Option<Actor>) {
+        if player
+            .as_ref()
+            .and_then(|p| self.map.pos(&p.pos).map(|t| !t.is_wall()))
+            .unwrap_or(false)
+        {
+            self.player = player;
+        }
+    }
+
+    pub fn update_monster(&mut self, monster: Option<Actor>) {
+        if monster
+            .as_ref()
+            .and_then(|p| self.map.pos(&p.pos).map(|t| !t.is_wall()))
+            .unwrap_or(false)
+        {
+            self.monster = monster;
+        }
+    }
 }
 
 fn style_map(count: usize, tile: &Tile) -> (char, Style) {
@@ -130,14 +150,20 @@ fn main() {
     let backend = ui::TCodBackend::new(root, Style::default().bg(COLOR_CANVAS_BG));
     let mut terminal = Terminal::new(backend).unwrap();
 
-    let mut map = generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT);
-
     let mut cursor: Cursor = Default::default();
     let mut key = Default::default();
 
-    let mut offset = 0.0;
-    let mut map_pos = Pos::zero();
-    let mut select = 0;
+    let mut app = App {
+        map_pos: Pos::zero(),
+        map: generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT),
+        settings: Settings {
+            tabs: vec!["Visualization".to_string(), "Model".to_string(), "Map".to_string()],
+            selected: 0,
+        },
+        monster: None,
+        player: None,
+    };
+
     loop {
         match input::check_for_event(input::MOUSE | input::KEY_PRESS) {
             Some((_, Event::Mouse(m))) => cursor.update_mouse(m),
@@ -153,7 +179,6 @@ fn main() {
                 use tui::widgets::*;
 
                 let size = f.size();
-                offset += 0.025;
 
                 let layout = Layout::default()
                     .direction(Direction::Vertical)
@@ -178,11 +203,41 @@ fn main() {
                     .title("Path-finding Visualization")
                     .borders(Borders::TOP)
                     .render(&mut f, layout[0]);
-                MapView::new(&map, style_map)
+
+                let mut player = None;
+                let mut monster = None;
+                let mut map_view = MapView::new(&app.map, style_map)
                     .block(Block::default().title("Map").borders(Borders::ALL))
-                    .map_position(map_pos.clone())
-                    .position_callback(cursor.clone().into(), |p| println!("{:?}", p))
+                    .map_position(app.map_pos.clone());
+
+                if let Some(player) = &app.player {
+                    map_view = map_view.player(
+                        player.clone(),
+                        "@",
+                        Style::default().fg(COLOR_PLAYER).bg(COLOR_GROUND_BG),
+                    );
+                }
+
+                if let Some(monster) = &app.monster {
+                    map_view = map_view.monster(
+                        monster.clone(),
+                        "M",
+                        Style::default().fg(COLOR_MONSTER).bg(COLOR_GROUND_BG),
+                    );
+                }
+
+                map_view
+                    .position_callback(cursor.clone().into(), |p| {
+                        if cursor.mouse.lbutton {
+                            player = p.map(|Pos { x, y }| Actor::new(x, y, 100, 100));
+                        } else if cursor.mouse.rbutton {
+                            monster = p.map(|Pos { x, y }| Actor::new(x, y, 0, 0));
+                        }
+                    })
                     .render(&mut f, map_layout[0]);
+
+                app.update_player(player);
+                app.update_monster(monster);
 
                 let mut settings = Block::default().title("Settings").borders(Borders::ALL);
                 let settings_layout = Layout::default()
@@ -192,8 +247,8 @@ fn main() {
                 settings.render(&mut f, map_layout[1]);
 
                 Tabs::default()
-                    .titles(&["Visualization", "Model", "Map"])
-                    .select(select)
+                    .titles(&app.settings.tabs)
+                    .select(app.settings.selected)
                     .block(Block::default().borders(Borders::BOTTOM))
                     .highlight_style(Style::default().fg(Color::Yellow))
                     .render(&mut f, settings_layout[0]);
@@ -211,11 +266,11 @@ fn main() {
         use tcod::input::KeyCode::{Down, Left, Right, Tab, Up};
 
         match key {
-            Key { code: Right, .. } => map_pos.x = map_pos.x + 1,
-            Key { code: Left, .. } => map_pos.x = map_pos.x.max(1) - 1,
-            Key { code: Up, .. } => map_pos.y = map_pos.y.max(1) - 1,
-            Key { code: Down, .. } => map_pos.y = map_pos.y + 1,
-            Key { code: Tab, .. } => select = (select + 1) % 3,
+            Key { code: Right, .. } => app.map_pos.x = app.map_pos.x + 1,
+            Key { code: Left, .. } => app.map_pos.x = app.map_pos.x.max(1) - 1,
+            Key { code: Up, .. } => app.map_pos.y = app.map_pos.y.max(1) - 1,
+            Key { code: Down, .. } => app.map_pos.y = app.map_pos.y + 1,
+            Key { code: Tab, .. } => app.settings.selected = (app.settings.selected + 1) % 3,
             _ => (),
         }
     }
