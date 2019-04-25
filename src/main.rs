@@ -104,7 +104,10 @@ impl Default for App {
             map: generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT),
             settings: Settings {
                 items: vec![
-                    ("Refresh Map".to_string(), &|_| println!("Refresh")),
+                    ("Re-Generate Map".to_string(), &|a| {
+                        let mut rng = thread_rng();
+                        a.map = generate(&mut rng, MAP_WIDTH, MAP_HEIGHT);
+                    }),
                     ("Switch Optimizer".to_string(), &|_| println!("Optimize")),
                     ("Switch Model".to_string(), &|_| println!("Model")),
                 ],
