@@ -229,7 +229,12 @@ impl Action for Movement {
             }
             Teleport(direction) => {
                 let Position { mut x, mut y } = &actor.pos;
-                for _ in 0..10 {
+                use Direction::*;
+                let distance = match direction {
+                    SouthEast | NorthEast | SouthWest | NorthWest => 5,
+                    _ => 10,
+                };
+                for _ in 0..distance {
                     let (nx, ny) = direction.step_from(x, y);
 
                     if let Some(tile) = map.get(nx as u32, ny as u32) {
