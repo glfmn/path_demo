@@ -5,7 +5,8 @@ use slog::{Drain, Logger};
 
 use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
-use game_lib::path::astar::AStar;
+use game_lib::path::astar::{AStar, OptimalAStar};
+use game_lib::path::dijkstra::Dijkstra;
 use game_lib::path::{Optimizer, PathResult, State, Trajectory};
 use game_lib::Position as Pos;
 
@@ -106,6 +107,9 @@ impl Default for App {
                 items: vec![
                     ("Re-Generate Map".to_string(), &|a| {
                         let mut rng = thread_rng();
+                        a.clear();
+                        a.player = None;
+                        a.monster = None;
                         a.map = generate(&mut rng, MAP_WIDTH, MAP_HEIGHT);
                     }),
                     ("Switch Optimizer".to_string(), &|_| println!("Optimize")),
