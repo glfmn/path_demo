@@ -12,7 +12,7 @@ where
     M: Model,
     M::Cost: Radix + Copy,
 {
-    queue: RadixHeapMap<M::Cost, Node<M>>,
+    queue: RadixHeapMap<Reverse<M::Cost>, Node<M>>,
     grid: FnvHashMap<<<M as Model>::State as State>::Position, Id<M>>,
     parent_map: FnvHashMap<Id<M>, Node<M>>,
     id_counter: usize,
@@ -82,7 +82,7 @@ where
                 }
 
                 self.parent_map.insert(child.id.clone(), current.clone());
-                self.queue.push(child.id.g.0, child);
+                self.queue.push(child.id.g, child);
             }
         }
 
