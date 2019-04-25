@@ -13,8 +13,8 @@ pub trait Action {
 #[derive(Debug, Clone)]
 pub struct Actor {
     pub pos: Position,
-    mana: usize,
-    max_mana: usize,
+    pub mana: usize,
+    pub max_mana: usize,
 }
 
 pub enum Goal {
@@ -112,6 +112,7 @@ impl Default for Direction {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Movement {
+    Teleport(Direction),
     Walk(Direction),
     None,
 }
@@ -159,10 +160,56 @@ impl Sampler<TurnOptimal> for WalkSampler {
     }
 }
 
+pub struct TeleportSampler {
+    movements: [Movement; 16],
+}
+
+impl TeleportSampler {
+    pub fn new() -> Self {
+        use Direction::*;
+        use Movement::*;
+
+        TeleportSampler {
+            movements: [
+                Walk(North),
+                Walk(NorthEast),
+                Walk(East),
+                Walk(SouthEast),
+                Walk(South),
+                Walk(SouthWest),
+                Walk(West),
+                Walk(NorthWest),
+                Teleport(North),
+                Teleport(NorthEast),
+                Teleport(East),
+                Teleport(SouthEast),
+                Teleport(South),
+                Teleport(SouthWest),
+                Teleport(West),
+                Teleport(NorthWest),
+            ],
+        }
+    }
+}
+
+impl Default for TeleportSampler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Sampler<TurnOptimal> for TeleportSampler {
+    #[inline]
+    fn sample(&mut self, _: &TurnOptimal, _: &Actor) -> &[Movement] {
+        &self.movements
+    }
+}
+
 impl Action for Movement {
     fn execute(&self, map: &Map, actor: &mut Actor) -> ActionResult {
         use Movement::*;
 
+        actor.mana = (actor.mana + 1).min(actor.max_mana);
         match self {
             None => Ok(()),
             Walk(direction) => {
@@ -178,6 +225,29 @@ impl Action for Movement {
                     }
                 } else {
                     Err(format!("Position ({},{}) does not exist on the map", nx, ny))
+                }
+            }
+            Teleport(direction) => {
+                let Position { mut x, mut y } = &actor.pos;
+                for _ in 0..10 {
+                    let (nx, ny) = direction.step_from(x, y);
+
+                    if let Some(tile) = map.get(nx as u32, ny as u32) {
+                        if !tile.is_blocking() {
+                            let new = direction.step_from(x, y);
+                            x = new.0;
+                            y = new.1;
+                        } else {
+                            return Err(format!("Position ({},{}) is blocked", nx, ny));
+                        }
+                    }
+                }
+                actor.pos = Position { x, y };
+                if actor.mana < 5 {
+                    Err(format!("Consumes too much mana for {:?}", actor))
+                } else {
+                    actor.mana -= 5;
+                    Ok(())
                 }
             }
         }

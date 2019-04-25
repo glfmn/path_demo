@@ -3,7 +3,7 @@
 use slog::{info, o};
 use slog::{Drain, Logger};
 
-use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
+use game_lib::actor::{Actor, Heuristic, TeleportSampler, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::{AStar, OptimalAStar};
 use game_lib::path::dijkstra::Dijkstra;
@@ -50,9 +50,25 @@ struct Settings {
     selected: usize,
 }
 
+enum Sampler {
+    Walk,
+    Teleport,
+}
+
+impl Sampler {
+    fn toggle(&mut self) {
+        use Sampler::*;
+        *self = match self {
+            Walk => Teleport,
+            Teleport => Walk,
+        }
+    }
+}
+
 struct App {
     pub map_pos: Pos,
     pub map: Map,
+    pub sampler: Sampler,
     pub settings: Settings,
     pub monster: Option<Actor>,
     pub player: Option<Actor>,
@@ -66,6 +82,7 @@ impl Default for App {
         App {
             map_pos: Pos::zero(),
             map: generate(&mut map_rng, MAP_WIDTH, MAP_HEIGHT),
+            sampler: Sampler::Walk,
             settings: Settings {
                 items: vec![
                     ("Re-Generate Map".to_string(), &|a| {
@@ -85,7 +102,15 @@ impl Default for App {
                         };
                         a.settings.items[1].0 = format!("Switch Optimizer [{}]", name);
                     }),
-                    ("Switch Model".to_string(), &|_| println!("Model")),
+                    ("Switch Sampler [Walk]".to_string(), &|a| {
+                        a.clear();
+                        a.sampler.toggle();
+                        let name = match a.sampler {
+                            Sampler::Walk => "Walk",
+                            Sampler::Teleport => "Teleport",
+                        };
+                        a.settings.items[2].0 = format!("Switch Sampler [{}]", name);
+                    }),
                 ],
                 selected: 0,
             },
@@ -129,23 +154,24 @@ impl App {
         self.trajectory = PathResult::Intermediate(Trajectory::default());
     }
 
-    pub fn trajectory(&self) -> Vec<Pos> {
+    pub fn trajectory(&self) -> Trajectory<TurnOptimal> {
         match &self.trajectory {
-            PathResult::Intermediate(t) => t,
-            PathResult::Final(t) => t,
-            _ => return Vec::new(),
+            PathResult::Intermediate(t) => t.clone(),
+            PathResult::Final(t) => t.clone(),
+            _ => Trajectory::default(),
         }
-        .trajectory
-        .iter()
-        .map(|(s, _)| s.pos.clone())
-        .collect()
     }
 
     pub fn visualization(&self) -> Visualization {
         Visualization {
             queue: self.algorithm.inspect_queue().map(|(s, _)| (s.pos.clone(), 0)).collect(),
             visited: self.algorithm.inspect_discovered().cloned().collect(),
-            trajectory: self.trajectory(),
+            trajectory: self
+                .trajectory()
+                .trajectory
+                .iter()
+                .map(|(s, _)| s.pos.clone())
+                .collect(),
         }
     }
 
@@ -155,9 +181,26 @@ impl App {
                 let mut model = TurnOptimal::new(self.map);
                 model.set_heuristic(Heuristic::Diagonal);
                 let mut goal = player.clone();
-                let mut sampler = WalkSampler::new();
-                self.trajectory =
-                    self.algorithm.next_trajectory(&mut model, &monster, &goal, &mut sampler);
+                match self.sampler {
+                    Sampler::Walk => {
+                        let mut sampler = WalkSampler::new();
+                        self.trajectory = self.algorithm.next_trajectory(
+                            &mut model,
+                            &monster,
+                            &goal,
+                            &mut sampler,
+                        );
+                    }
+                    Sampler::Teleport => {
+                        let mut sampler = TeleportSampler::new();
+                        self.trajectory = self.algorithm.next_trajectory(
+                            &mut model,
+                            &monster,
+                            &goal,
+                            &mut sampler,
+                        );
+                    }
+                };
                 self.map = model.return_map();
             }
         }
@@ -171,9 +214,18 @@ impl App {
                 let mut model = TurnOptimal::new(self.map);
                 model.set_heuristic(Heuristic::Diagonal);
                 let mut goal = player.clone();
-                let mut sampler = WalkSampler::new();
-                self.trajectory =
-                    self.algorithm.optimize(&mut model, &monster, &goal, &mut sampler);
+                match self.sampler {
+                    Sampler::Walk => {
+                        let mut sampler = WalkSampler::new();
+                        self.trajectory =
+                            self.algorithm.optimize(&mut model, &monster, &goal, &mut sampler);
+                    }
+                    Sampler::Teleport => {
+                        let mut sampler = TeleportSampler::new();
+                        self.trajectory =
+                            self.algorithm.optimize(&mut model, &monster, &goal, &mut sampler);
+                    }
+                };
                 self.map = model.return_map();
             }
         }
@@ -346,9 +398,9 @@ fn main() {
                 map_view
                     .position_callback(cursor.clone().into(), |p| {
                         if cursor.mouse.lbutton {
-                            player = p.map(|Pos { x, y }| Actor::new(x, y, 100, 100));
+                            player = p.map(|Pos { x, y }| Actor::new(x, y, 0, 20));
                         } else if cursor.mouse.rbutton {
-                            monster = p.map(|Pos { x, y }| Actor::new(x, y, 0, 0));
+                            monster = p.map(|Pos { x, y }| Actor::new(x, y, 0, 10));
                         }
                     })
                     .render(&mut f, map_layout[0]);
@@ -356,15 +408,42 @@ fn main() {
                 app.update_player(player);
                 app.update_monster(monster);
 
+                let right_layout = Layout::default()
+                    .direction(Direction::Vertical)
+                    .margin(1)
+                    .constraints(
+                        [
+                            Constraint::Length(app.settings.items.len() as u16 + 4),
+                            Constraint::Min(10),
+                        ]
+                        .as_ref(),
+                    )
+                    .split(map_layout[1]);
+
                 SelectableList::default()
                     .block(Block::default().title("Settings").borders(Borders::ALL))
                     .items(&app.settings())
                     .select(Some(app.settings.selected))
                     .highlight_style(Style::default().fg(Color::Yellow))
                     .highlight_symbol(">")
-                    .render(&mut f, map_layout[1]);
+                    .render(&mut f, right_layout[0]);
 
-                Block::default().title("Log").borders(Borders::ALL).render(&mut f, layout[2]);
+                SelectableList::default()
+                    .block(Block::default().title("Trajectory").borders(Borders::ALL))
+                    .items(
+                        app.trajectory()
+                            .trajectory
+                            .iter()
+                            .map(|(state, control)| {
+                                format!(
+                                    "Mana {}/{} | {:?}",
+                                    state.mana, state.max_mana, control
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .as_ref(),
+                    )
+                    .render(&mut f, right_layout[1]);
             })
             .unwrap();
 
