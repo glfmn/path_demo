@@ -218,10 +218,10 @@ impl App {
                 self.settings.selected =
                     (self.settings.selected + 1) % self.settings.items.len()
             }
-            Key { code: Spacebar, shift: true, .. } => self = self.complete_plan(),
-            Key { code: Spacebar, .. } => self = self.step(),
+            Key { code: Enter, shift: true, .. } => self = self.complete_plan(),
+            Key { code: Enter, .. } => self = self.step(),
             Key { code: Backspace, .. } => self.clear(),
-            Key { code: Enter, .. } => {
+            Key { code: Spacebar, .. } => {
                 (self.settings.items[self.settings.selected].1)(&mut self)
             }
             _ => (),
