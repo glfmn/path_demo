@@ -319,7 +319,8 @@ where
 
     pub fn toggle(&mut self) {
         match self {
-            Algorithm::AStar(_) => *self = Self::optimal_astar(),
+            Algorithm::AStar(_) => *self = Self::dijkstra(),
+            // hack: Skip optimal A* in the rotation
             Algorithm::OptimalAStar(_) => *self = Self::dijkstra(),
             Algorithm::Dijkstra(_) => *self = Self::astar(),
         }

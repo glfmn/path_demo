@@ -98,7 +98,7 @@ impl Default for App {
                         let name = match a.algorithm {
                             Algorithm::Dijkstra(_) => "Dijkstra",
                             Algorithm::AStar(_) => "A*",
-                            Algorithm::OptimalAStar(_) => "Optimal A*",
+                            Algorithm::OptimalAStar(_) => "High Performance A*",
                         };
                         a.settings.items[1].0 = format!("Switch Optimizer [{}]", name);
                     }),
@@ -436,7 +436,7 @@ fn main() {
                             .iter()
                             .map(|(state, control)| {
                                 format!(
-                                    "Mana {}/{} | {:?}",
+                                    "Mana {:2}/{} | {:?}",
                                     state.mana, state.max_mana, control
                                 )
                             })

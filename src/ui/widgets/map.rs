@@ -126,13 +126,13 @@ where
         );
 
         let mut sym_buff = [0, 0, 0, 0];
-        let mut legend_entries: Vec<(String, Style, &str)> =
-            vec![(Tile::WALL, "wall"), (Tile::FLOOR, "floor")]
+        let mut legend_entries: Vec<(String, Style, String)> =
+            vec![(Tile::WALL, "wall".to_string()), (Tile::FLOOR, "floor".to_string())]
                 .iter()
                 .map(|(tile, name)| {
                     let (glyph, sty) = (self.style_fn)(1, &tile);
                     let sym = glyph.encode_utf8(&mut sym_buff).to_string();
-                    (sym, sty, *name)
+                    (sym, sty, name.clone())
                 })
                 .collect();
 
@@ -153,7 +153,11 @@ where
         if let Some(Visualization { queue, visited, trajectory }) = &self.visualization {
             use tui::symbols;
             let style = &self.visited_style.unwrap_or(Style::default());
-            legend_entries.push((symbols::bar::HALF.to_string(), *style, "visited"));
+            legend_entries.push((
+                symbols::bar::HALF.to_string(),
+                *style,
+                "visited".to_string(),
+            ));
             for pos in visited.iter() {
                 if let Some(Position { x, y }) = map_coord
                     .transform_to_local(pos)
@@ -166,7 +170,11 @@ where
             }
 
             let style = &self.queue_style.unwrap_or(Style::default());
-            legend_entries.push((symbols::bar::HALF.to_string(), *style, "queued"));
+            legend_entries.push((
+                symbols::bar::HALF.to_string(),
+                *style,
+                "queued".to_string(),
+            ));
             for pos in queue.keys() {
                 if let Some(Position { x, y }) = map_coord
                     .transform_to_local(pos)
@@ -179,7 +187,7 @@ where
             }
 
             let style = &self.trajectory_style.unwrap_or(Style::default());
-            legend_entries.push(("+".to_string(), *style, "trajectory"));
+            legend_entries.push(("+".to_string(), *style, "trajectory".to_string()));
             for pos in trajectory.iter() {
                 if let Some(Position { x, y }) = map_coord
                     .transform_to_local(pos)
@@ -201,7 +209,11 @@ where
         }
 
         if let Some((monster, symbol, style)) = &self.monster {
-            legend_entries.push((symbol.to_string(), *style, "start"));
+            legend_entries.push((
+                symbol.to_string(),
+                *style,
+                format!("start {},{}", monster.pos.x, monster.pos.y),
+            ));
             let pos = map_coord
                 .transform_to_local(&monster.pos)
                 .and_then(|p| screen_coord.transform(&p));
@@ -211,7 +223,11 @@ where
         }
 
         if let Some((player, symbol, style)) = &self.player {
-            legend_entries.push((symbol.to_string(), *style, "goal"));
+            legend_entries.push((
+                symbol.to_string(),
+                *style,
+                format!("goal  {},{}", player.pos.x, player.pos.y),
+            ));
             let pos = map_coord
                 .transform_to_local(&player.pos)
                 .and_then(|p| screen_coord.transform(&p));
@@ -234,7 +250,7 @@ where
 
         let legend_area = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
+            .constraints([Constraint::Percentage(75), Constraint::Percentage(25)].as_ref())
             .split(layout[0])[1];
 
         let mut legend = Block::default().title("Legend").borders(Borders::ALL);
