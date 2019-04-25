@@ -38,6 +38,22 @@ where
     M: Model,
     M::Cost: Radix + Copy,
 {
+    pub fn clear(&mut self) {
+        self.queue.clear();
+        self.parent_map.clear();
+        self.grid.clear();
+    }
+
+    pub fn inspect_queue(&self) -> impl Iterator<Item = (&M::State, &M::Control)> {
+        self.queue.values().map(|node| (&node.state, &node.control))
+    }
+
+    pub fn inspect_discovered(
+        &self,
+    ) -> impl Iterator<Item = &<<M as Model>::State as State>::Position> {
+        self.grid.keys()
+    }
+
     #[inline(always)]
     fn step<S>(
         &mut self,

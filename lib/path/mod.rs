@@ -247,3 +247,119 @@ where
         sampler: &mut S,
     ) -> PathResult<M>;
 }
+
+use self::astar::{AStar, OptimalAStar};
+use self::dijkstra::Dijkstra;
+
+pub enum Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    AStar(AStar<M>),
+    Dijkstra(Dijkstra<M>),
+    OptimalAStar(OptimalAStar<M>),
+}
+
+impl<M, S> Optimizer<M, S> for Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+    S: Sampler<M>,
+{
+    fn next_trajectory(
+        &mut self,
+        model: &mut M,
+        start: &M::State,
+        goal: &M::State,
+        sampler: &mut S,
+    ) -> PathResult<M> {
+        match self {
+            Algorithm::AStar(o) => o.next_trajectory(model, start, goal, sampler),
+            Algorithm::OptimalAStar(o) => o.next_trajectory(model, start, goal, sampler),
+            Algorithm::Dijkstra(o) => o.next_trajectory(model, start, goal, sampler),
+        }
+    }
+
+    fn optimize(
+        &mut self,
+        model: &mut M,
+        start: &M::State,
+        goal: &M::State,
+        sampler: &mut S,
+    ) -> PathResult<M> {
+        match self {
+            Algorithm::AStar(o) => o.optimize(model, start, goal, sampler),
+            Algorithm::OptimalAStar(o) => o.optimize(model, start, goal, sampler),
+            Algorithm::Dijkstra(o) => o.optimize(model, start, goal, sampler),
+        }
+    }
+}
+
+impl<M> Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    pub fn new() -> Self {
+        Algorithm::AStar(AStar::new())
+    }
+
+    pub fn astar() -> Self {
+        Self::new()
+    }
+
+    pub fn optimal_astar() -> Self {
+        Algorithm::OptimalAStar(OptimalAStar::default())
+    }
+
+    pub fn dijkstra() -> Self {
+        Algorithm::Dijkstra(Dijkstra::default())
+    }
+
+    pub fn toggle(&mut self) {
+        match self {
+            Algorithm::AStar(_) => *self = Self::optimal_astar(),
+            Algorithm::OptimalAStar(_) => *self = Self::dijkstra(),
+            Algorithm::Dijkstra(_) => *self = Self::astar(),
+        }
+    }
+
+    pub fn clear(&mut self) {
+        match self {
+            Algorithm::AStar(o) => o.clear(),
+            Algorithm::OptimalAStar(o) => o.clear(),
+            Algorithm::Dijkstra(o) => o.clear(),
+        }
+    }
+
+    pub fn inspect_queue<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (&'a M::State, &'a M::Control)> + 'a> {
+        match self {
+            Algorithm::AStar(o) => Box::new(o.inspect_queue()),
+            Algorithm::OptimalAStar(o) => Box::new(o.inspect_queue()),
+            Algorithm::Dijkstra(o) => Box::new(o.inspect_queue()),
+        }
+    }
+
+    pub fn inspect_discovered<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = &<<M as Model>::State as State>::Position> + 'a> {
+        match self {
+            Algorithm::AStar(o) => Box::new(o.inspect_discovered()),
+            Algorithm::OptimalAStar(o) => Box::new(o.inspect_discovered()),
+            Algorithm::Dijkstra(o) => Box::new(o.inspect_discovered()),
+        }
+    }
+}
+
+impl<M> Default for Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}

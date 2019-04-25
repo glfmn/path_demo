@@ -7,7 +7,7 @@ use game_lib::actor::{Actor, Heuristic, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
 use game_lib::path::astar::{AStar, OptimalAStar};
 use game_lib::path::dijkstra::Dijkstra;
-use game_lib::path::{Optimizer, PathResult, State, Trajectory};
+use game_lib::path::{Algorithm, HeuristicModel, Optimizer, PathResult, State, Trajectory};
 use game_lib::Position as Pos;
 
 use rand::{thread_rng, Rng, SeedableRng};
@@ -43,43 +43,6 @@ const COLOR_CURSOR: Color = Color::Green;
 const COLOR_MONSTER: Color = Color::Rgb(44, 200, 247);
 const COLOR_PLAYER: Color = Color::Rgb(188, 7, 98);
 
-#[derive(PartialEq, Default, Clone)]
-struct Cursor {
-    mouse: Mouse,
-}
-
-impl Cursor {
-    pub fn update_mouse(&mut self, m: Mouse) {
-        self.mouse = m;
-    }
-
-    pub fn draw<C: Console>(&self, _: &mut C, _: &Map) {}
-
-    #[inline]
-    pub fn as_tuple(&self) -> (u32, u32) {
-        (self.mouse.cx as u32, self.mouse.cy as u32)
-    }
-
-    #[inline]
-    pub fn as_position(&self) -> Pos {
-        Pos::new(self.mouse.cx as u32, self.mouse.cy as u32)
-    }
-}
-
-impl Into<Pos> for Cursor {
-    #[inline]
-    fn into(self) -> Pos {
-        self.as_position()
-    }
-}
-
-impl Into<(u32, u32)> for Cursor {
-    #[inline]
-    fn into(self) -> (u32, u32) {
-        self.as_tuple()
-    }
-}
-
 use crate::ui::widgets::Visualization;
 
 struct Settings {
@@ -93,7 +56,7 @@ struct App {
     pub settings: Settings,
     pub monster: Option<Actor>,
     pub player: Option<Actor>,
-    pub astar: AStar<TurnOptimal>,
+    pub algorithm: Algorithm<TurnOptimal>,
     pub trajectory: PathResult<TurnOptimal>,
 }
 
@@ -112,14 +75,23 @@ impl Default for App {
                         a.monster = None;
                         a.map = generate(&mut rng, MAP_WIDTH, MAP_HEIGHT);
                     }),
-                    ("Switch Optimizer".to_string(), &|_| println!("Optimize")),
+                    ("Switch Optimizer [A*]".to_string(), &|a| {
+                        a.clear();
+                        a.algorithm.toggle();
+                        let name = match a.algorithm {
+                            Algorithm::Dijkstra(_) => "Dijkstra",
+                            Algorithm::AStar(_) => "A*",
+                            Algorithm::OptimalAStar(_) => "Optimal A*",
+                        };
+                        a.settings.items[1].0 = format!("Switch Optimizer [{}]", name);
+                    }),
                     ("Switch Model".to_string(), &|_| println!("Model")),
                 ],
                 selected: 0,
             },
             monster: None,
             player: None,
-            astar: AStar::default(),
+            algorithm: Algorithm::default(),
             trajectory: PathResult::Intermediate(Trajectory::default()),
         }
     }
@@ -153,7 +125,7 @@ impl App {
     }
 
     pub fn clear(&mut self) {
-        self.astar.clear();
+        self.algorithm.clear();
         self.trajectory = PathResult::Intermediate(Trajectory::default());
     }
 
@@ -171,8 +143,8 @@ impl App {
 
     pub fn visualization(&self) -> Visualization {
         Visualization {
-            queue: self.astar.inspect_queue().map(|(s, _)| (s.pos.clone(), 0)).collect(),
-            visited: self.astar.inspect_discovered().cloned().collect(),
+            queue: self.algorithm.inspect_queue().map(|(s, _)| (s.pos.clone(), 0)).collect(),
+            visited: self.algorithm.inspect_discovered().cloned().collect(),
             trajectory: self.trajectory(),
         }
     }
@@ -185,7 +157,7 @@ impl App {
                 let mut goal = player.clone();
                 let mut sampler = WalkSampler::new();
                 self.trajectory =
-                    self.astar.next_trajectory(&mut model, &monster, &goal, &mut sampler);
+                    self.algorithm.next_trajectory(&mut model, &monster, &goal, &mut sampler);
                 self.map = model.return_map();
             }
         }
@@ -201,7 +173,7 @@ impl App {
                 let mut goal = player.clone();
                 let mut sampler = WalkSampler::new();
                 self.trajectory =
-                    self.astar.optimize(&mut model, &monster, &goal, &mut sampler);
+                    self.algorithm.optimize(&mut model, &monster, &goal, &mut sampler);
                 self.map = model.return_map();
             }
         }
@@ -235,6 +207,36 @@ impl App {
         };
 
         self
+    }
+}
+
+#[derive(PartialEq, Default, Clone)]
+struct Cursor {
+    mouse: Mouse,
+}
+
+impl Cursor {
+    pub fn update_mouse(&mut self, m: Mouse) {
+        self.mouse = m;
+    }
+
+    pub fn draw<C: Console>(&self, _: &mut C, _: &Map) {}
+
+    #[inline]
+    pub fn as_tuple(&self) -> (u32, u32) {
+        (self.mouse.cx as u32, self.mouse.cy as u32)
+    }
+
+    #[inline]
+    pub fn as_position(&self) -> Pos {
+        Pos::new(self.mouse.cx as u32, self.mouse.cy as u32)
+    }
+}
+
+impl Into<Pos> for Cursor {
+    #[inline]
+    fn into(self) -> Pos {
+        self.as_position()
     }
 }
 
