@@ -410,7 +410,6 @@ fn main() {
 
                 let right_layout = Layout::default()
                     .direction(Direction::Vertical)
-                    .margin(1)
                     .constraints(
                         [
                             Constraint::Length(app.settings.items.len() as u16 + 4),
@@ -428,22 +427,23 @@ fn main() {
                     .highlight_symbol(">")
                     .render(&mut f, right_layout[0]);
 
-                SelectableList::default()
-                    .block(Block::default().title("Trajectory").borders(Borders::ALL))
-                    .items(
-                        app.trajectory()
-                            .trajectory
-                            .iter()
-                            .map(|(state, control)| {
-                                format!(
-                                    "Mana {:2}/{} | {:?}",
-                                    state.mana, state.max_mana, control
-                                )
-                            })
-                            .collect::<Vec<_>>()
-                            .as_ref(),
-                    )
-                    .render(&mut f, right_layout[1]);
+                Table::new(
+                    ["Mana", "Action Taken"].into_iter(),
+                    app.trajectory().trajectory.iter().map(|(m, a)| {
+                        Row::Data(
+                            vec![
+                                format!("{:2}/{}", &m.mana, &m.max_mana),
+                                format!("{:?}", &a),
+                            ]
+                            .into_iter(),
+                        )
+                    }),
+                )
+                .widths(&[5, 20])
+                .header_style(Style::default().fg(Color::Yellow))
+                .column_spacing(2)
+                .block(Block::default().title("Trajectory").borders(Borders::ALL))
+                .render(&mut f, right_layout[1]);
             })
             .unwrap();
 
