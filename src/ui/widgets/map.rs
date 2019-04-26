@@ -4,7 +4,7 @@ use game_lib::Position;
 use game_lib::Rect as Area;
 
 use tui::buffer::Buffer;
-use tui::layout::{Layout, Rect};
+use tui::layout::Rect;
 use tui::style::Style;
 use tui::widgets::{Block, Widget};
 
@@ -53,11 +53,6 @@ where
 
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
-        self
-    }
-
-    pub fn style(mut self, style: F) -> Self {
-        self.style_fn = style;
         self
     }
 
@@ -116,13 +111,15 @@ where
             None => area,
         };
 
-        let (w, h) = self.map.dimensions();
-        let map_coord =
-            Area::new(self.map_pos.clone(), map_area.width as u32 - 1, map_area.height as u32);
+        let map_coord = Area::new(
+            self.map_pos.clone(),
+            u32::from(map_area.width) - 1,
+            u32::from(map_area.height),
+        );
         let screen_coord = Area::new(
             (map_area.left(), map_area.top()),
-            map_area.width as u32,
-            map_area.height as u32,
+            u32::from(map_area.width),
+            u32::from(map_area.height),
         );
 
         let mut sym_buff = [0, 0, 0, 0];
@@ -152,7 +149,7 @@ where
 
         if let Some(Visualization { queue, visited, trajectory }) = &self.visualization {
             use tui::symbols;
-            let style = &self.visited_style.unwrap_or(Style::default());
+            let style = &self.visited_style.unwrap_or_default();
             legend_entries.push((
                 symbols::bar::HALF.to_string(),
                 *style,
@@ -169,7 +166,7 @@ where
                 }
             }
 
-            let style = &self.queue_style.unwrap_or(Style::default());
+            let style = &self.queue_style.unwrap_or_default();
             legend_entries.push((
                 symbols::bar::HALF.to_string(),
                 *style,
@@ -186,7 +183,7 @@ where
                 }
             }
 
-            let style = &self.trajectory_style.unwrap_or(Style::default());
+            let style = &self.trajectory_style.unwrap_or_default();
             legend_entries.push(("+".to_string(), *style, "trajectory".to_string()));
             for pos in trajectory.iter() {
                 if let Some(Position { x, y }) = map_coord
@@ -237,7 +234,6 @@ where
         }
 
         use tui::layout::{Constraint, Direction, Layout};
-        use tui::symbols::*;
         use tui::widgets::*;
 
         let layout = Layout::default()

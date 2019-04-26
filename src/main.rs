@@ -1,17 +1,9 @@
-#![allow(unused)]
-
-use slog::{info, o};
-use slog::{Drain, Logger};
-
 use game_lib::actor::{Actor, Heuristic, TeleportSampler, TurnOptimal, WalkSampler};
 use game_lib::map::{generate, Map, Tile};
-use game_lib::path::astar::{AStar, OptimalAStar};
-use game_lib::path::dijkstra::Dijkstra;
-use game_lib::path::{Algorithm, HeuristicModel, Optimizer, PathResult, State, Trajectory};
+use game_lib::path::{Algorithm, Optimizer, PathResult, Trajectory};
 use game_lib::Position as Pos;
 
-use rand::{thread_rng, Rng, SeedableRng};
-use rand_xorshift::XorShiftRng;
+use rand::thread_rng;
 
 use tcod::console::*;
 use tcod::input::{self, Event, Key, Mouse};
@@ -39,7 +31,6 @@ const COLOR_GROUND_FG: Color = Color::Rgb(254, 241, 224);
 const COLOR_GROUND_BG: Color = Color::Rgb(246, 230, 206);
 
 // Color of the cursor and other UI elements
-const COLOR_CURSOR: Color = Color::Green;
 const COLOR_MONSTER: Color = Color::Rgb(44, 200, 247);
 const COLOR_PLAYER: Color = Color::Rgb(188, 7, 98);
 
@@ -180,7 +171,7 @@ impl App {
             if let PathResult::Intermediate(_) = &self.trajectory {
                 let mut model = TurnOptimal::new(self.map);
                 model.set_heuristic(Heuristic::Diagonal);
-                let mut goal = player.clone();
+                let goal = player.clone();
                 match self.sampler {
                     Sampler::Walk => {
                         let mut sampler = WalkSampler::new();
@@ -213,7 +204,7 @@ impl App {
             if let PathResult::Intermediate(_) = &self.trajectory {
                 let mut model = TurnOptimal::new(self.map);
                 model.set_heuristic(Heuristic::Diagonal);
-                let mut goal = player.clone();
+                let goal = player.clone();
                 match self.sampler {
                     Sampler::Walk => {
                         let mut sampler = WalkSampler::new();
@@ -237,10 +228,10 @@ impl App {
         use tcod::input::KeyCode::*;
 
         match event {
-            Key { code: Right, .. } => self.map_pos.x = self.map_pos.x + 1,
+            Key { code: Right, .. } => self.map_pos.x += 1,
             Key { code: Left, .. } => self.map_pos.x = self.map_pos.x.max(1) - 1,
             Key { code: Up, .. } => self.map_pos.y = self.map_pos.y.max(1) - 1,
-            Key { code: Down, .. } => self.map_pos.y = self.map_pos.y + 1,
+            Key { code: Down, .. } => self.map_pos.y += 1,
             Key { code: PageUp, .. } => {
                 self.settings.selected =
                     (self.settings.selected - 1) % self.settings.items.len()
@@ -272,13 +263,6 @@ impl Cursor {
         self.mouse = m;
     }
 
-    pub fn draw<C: Console>(&self, _: &mut C, _: &Map) {}
-
-    #[inline]
-    pub fn as_tuple(&self) -> (u32, u32) {
-        (self.mouse.cx as u32, self.mouse.cy as u32)
-    }
-
     #[inline]
     pub fn as_position(&self) -> Pos {
         Pos::new(self.mouse.cx as u32, self.mouse.cy as u32)
@@ -295,32 +279,20 @@ impl Into<Pos> for Cursor {
 fn style_map(count: usize, tile: &Tile) -> (char, Style) {
     if count == 0 {
         (' ', Style::default())
+    } else if tile.is_wall() {
+        ('#', Style::default().fg(COLOR_WALL_FG).bg(COLOR_WALL_BG))
     } else {
-        if tile.is_wall() {
-            ('#', Style::default().fg(COLOR_WALL_FG).bg(COLOR_WALL_BG))
-        } else {
-            ('.', Style::default().fg(COLOR_GROUND_FG).bg(COLOR_GROUND_BG))
-        }
+        ('.', Style::default().fg(COLOR_GROUND_FG).bg(COLOR_GROUND_BG))
     }
 }
 
 fn main() {
-    let mut root = Root::initializer()
+    let root = Root::initializer()
         .font("consolas12x12_gs_tc.png", FontLayout::Tcod)
         .font_type(FontType::Greyscale)
         .size(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32)
         .title("Pathfinding")
         .init();
-
-    let seed = thread_rng().gen();
-    let mut map_rng = XorShiftRng::from_seed(seed);
-
-    let term = slog_term::TermDecorator::new().force_color().build();
-    let decorator = slog_term::CompactFormat::new(term).build();
-    let drain = std::sync::Mutex::new(decorator).fuse();
-    let logger = Logger::root(drain, o!());
-
-    info!(logger, "Starting vis"; "seed" => format!("{:?}", seed));
 
     tcod::system::set_fps(30);
     tcod::input::show_cursor(true);
@@ -423,7 +395,7 @@ fn main() {
                     .render(&mut f, right_layout[0]);
 
                 Table::new(
-                    ["Position", "Mana", "Action"].into_iter(),
+                    ["Position", "Mana", "Action"].iter(),
                     app.trajectory().trajectory.iter().map(|(m, a)| {
                         Row::Data(
                             vec![

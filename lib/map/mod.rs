@@ -243,7 +243,7 @@ impl Map {
     }
 
     /// Iterate over the tiles inside a rectangular area contained in the map
-    pub fn iter_rect<'a>(&'a self, area: Rect) -> MapArea<'a> {
+    pub fn iter_rect(&self, area: Rect) -> MapArea<'_> {
         MapArea { x: 0, y: 0, area, map: self }
     }
 }

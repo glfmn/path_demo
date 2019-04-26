@@ -37,6 +37,7 @@ impl TCodBackend {
     }
 
     /// Change the foreground and background colors
+    #[allow(unused)]
     pub fn style(mut self, style: Style) -> Self {
         let (fg, bg) = (
             tui_to_tcod_color(style.fg, colors::WHITE),
@@ -60,7 +61,7 @@ impl Backend for TCodBackend {
             let symbol = tui_to_tcod_symbol(cell.symbol.as_str());
             let fg = tui_to_tcod_color(cell.style.fg, self.reset_colors.0);
             let bg = tui_to_tcod_color(cell.style.bg, self.reset_colors.1);
-            self.console.put_char_ex(x as i32, y as i32, symbol, fg, bg);
+            self.console.put_char_ex(i32::from(x), i32::from(y), symbol, fg, bg);
         }
         Ok(())
     }
@@ -77,7 +78,7 @@ impl Backend for TCodBackend {
         Ok(())
     }
 
-    fn set_cursor(&mut self, x: u16, y: u16) -> Result<(), io::Error> {
+    fn set_cursor(&mut self, _x: u16, _y: u16) -> Result<(), io::Error> {
         unimplemented!()
     }
 
@@ -151,19 +152,13 @@ fn tui_to_tcod_symbol(symbol: &str) -> char {
         // Vertical bars in a bar graph, limited resolution
         bar::ONE_EIGHTH | bar::ONE_QUATER | bar::THREE_EIGHTHS => chars::BLOCK1,
         bar::HALF | bar::FIVE_EIGHTHS | bar::THREE_QUATERS => chars::BLOCK2,
-        bar::SEVEN_EIGHTHS | bar::FULL => chars::BLOCK3,
+        bar::SEVEN_EIGHTHS => chars::BLOCK3,
         // Horizontal bars in a bar graph, limited resolution
         block::ONE_EIGHTH | block::ONE_QUATER | block::THREE_EIGHTHS => chars::BLOCK1,
         block::HALF | block::FIVE_EIGHTHS | block::THREE_QUATERS => chars::BLOCK2,
-        block::SEVEN_EIGHTHS | block::FULL => chars::BLOCK3,
-        symbol => {
-            #[cfg(debug_assertions)]
-            {
-                if symbol != " " {
-                    eprintln!("Content: {:?}", symbol);
-                }
-            }
-            symbol.chars().next().unwrap()
-        }
+        block::SEVEN_EIGHTHS => chars::BLOCK3,
+        // Covers the full case of both bar and block
+        bar::FULL => chars::BLOCK3,
+        symbol => symbol.chars().next().unwrap(),
     }
 }
