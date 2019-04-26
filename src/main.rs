@@ -21,10 +21,10 @@ use tui::Terminal;
 mod ui;
 
 /// Screen width in number of vertical columns of text
-const SCREEN_WIDTH: u32 = 120;
+const SCREEN_WIDTH: u32 = 125;
 
 /// Screen height in number of horizontal rows of text
-const SCREEN_HEIGHT: u32 = 80;
+const SCREEN_HEIGHT: u32 = 85;
 
 // Have the map consume the space not consumed by the GUI
 const MAP_WIDTH: u32 = SCREEN_WIDTH * 2;
@@ -352,17 +352,12 @@ fn main() {
                 let layout = Layout::default()
                     .direction(Direction::Vertical)
                     .margin(1)
-                    .constraints(
-                        [Constraint::Length(2), Constraint::Min(80), Constraint::Min(0)]
-                            .as_ref(),
-                    )
+                    .constraints([Constraint::Length(2), Constraint::Min(80)].as_ref())
                     .split(size);
 
                 let map_layout = Layout::default()
                     .direction(Direction::Horizontal)
-                    .constraints(
-                        [Constraint::Percentage(70), Constraint::Percentage(30)].as_ref(),
-                    )
+                    .constraints([Constraint::Min(70), Constraint::Length(32)].as_ref())
                     .split(layout[1]);
                 Block::default()
                     .title("Path-finding Visualization")
@@ -428,10 +423,11 @@ fn main() {
                     .render(&mut f, right_layout[0]);
 
                 Table::new(
-                    ["Mana", "Action Taken"].into_iter(),
+                    ["Position", "Mana", "Action"].into_iter(),
                     app.trajectory().trajectory.iter().map(|(m, a)| {
                         Row::Data(
                             vec![
+                                format!("({:3},{:3})", &m.pos.x, &m.pos.y),
                                 format!("{:2}/{}", &m.mana, &m.max_mana),
                                 format!("{:?}", &a),
                             ]
@@ -439,9 +435,9 @@ fn main() {
                         )
                     }),
                 )
-                .widths(&[5, 20])
+                .widths(&[9, 5, 12])
                 .header_style(Style::default().fg(Color::Yellow))
-                .column_spacing(2)
+                //.column_spacing(2)
                 .block(Block::default().title("Trajectory").borders(Borders::ALL))
                 .render(&mut f, right_layout[1]);
             })

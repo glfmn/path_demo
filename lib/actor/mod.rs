@@ -76,7 +76,7 @@ impl Actor {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     North,
     NorthEast,
@@ -86,6 +86,26 @@ pub enum Direction {
     SouthWest,
     West,
     NorthWest,
+}
+
+impl fmt::Debug for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Direction::*;
+        write!(
+            f,
+            "{}",
+            match &self {
+                North => "N",
+                NorthEast => "NE",
+                East => "E",
+                SouthEast => "SE",
+                South => "S",
+                SouthWest => "SW",
+                West => "W",
+                NorthWest => "NW",
+            }
+        )
+    }
 }
 
 impl Direction {
