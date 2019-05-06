@@ -2,13 +2,13 @@
 //!
 //! # States versus Controls
 //!
-//! A state is how the entity we plan for exists in the game space.  A control is an action we can
-//! apply to a state in order to change it.
+//! A state is how the entity we plan for exists in the game space.  A control is an action we
+//! can apply to a state in order to change it.
 //!
 //! # Using a Model
 //!
-//! The [`Model`] defines the problem by determining the States and Controls.  More specifically,
-//! it defines:
+//! The [`Model`] defines the problem by determining the States and Controls.  More
+//! specifically, it defines:
 //!
 //! - the the model outputs; the planning space
 //! - the inputs which must be sampled
@@ -20,8 +20,8 @@
 //!
 //! # Optimizer
 //!
-//! The optimizer is actually responsible for creating the trajectory, using the model to solve the
-//! problem.
+//! The optimizer is actually responsible for creating the trajectory, using the model to solve
+//! the problem.
 //!
 //! [`Model`]: /path/trait.Model.html
 
@@ -73,23 +73,23 @@ pub trait Model {
 
     /// A measurement of the cost in the system
     ///
-    /// Note: the cost must implement `Ord` and `Eq` in order for the model to be compatible with
-    /// the [`Optimizer`] trait.
+    /// Note: the cost must implement `Ord` and `Eq` in order for the model to be compatible
+    /// with the [`Optimizer`] trait.
     ///
     /// [`Optimizer`]: /path/trait.Optimizer.html
     type Cost: Debug + Clone + Cost;
 
     /// Determine the cost between two states
     ///
-    /// Given a current state and future state, to find the optimal path in terms of a particular
-    /// state parameter or state parameters, the cost function provides a method to quantify and
-    /// _compare_ different paths, chosing the path that results in the lowest overall cost in
-    /// terms of this cost function.
+    /// Given a current state and future state, to find the optimal path in terms of a
+    /// particular state parameter or state parameters, the cost function provides a method
+    /// to quantify and _compare_ different paths, chosing the path that results in the
+    /// lowest overall cost in terms of this cost function.
     ///
     /// The canonical cost function for many path-finding applications is simply the euclidian
     /// distance (or some other type of distance calculation), which results in a distance
-    /// optimizing model.  However, SBMPO exposes methods to do optimization over arbitrary state
-    ///  paramters by using the model, such as:
+    /// optimizing model.  However, SBMPO exposes methods to do optimization over arbitrary
+    /// state  paramters by using the model, such as:
     ///
     /// - energy consumption
     /// - traversal time
@@ -127,7 +127,8 @@ pub trait Model {
     /// Generate a new current state from a control which is applied to a previous state
     ///
     /// Since States are not generated directly and expand from previous States, a function is
-    /// necessary which maps from previous states to new states according to the generated control.
+    /// necessary which maps from previous states to new states according to the generated
+    /// control.
     ///
     /// In other words, this method defines how states propagate or "integrate" from previous
     /// states according to the controls specified by the model.
@@ -137,8 +138,8 @@ pub trait Model {
     /// the next position.
     ///
     /// If the control cannot be applied to the state to produce a valid result, then return
-    /// `None`.  This allows for validation like checking to see if the action would collide with
-    /// an obstacle.
+    /// `None`.  This allows for validation like checking to see if the action would collide
+    /// with an obstacle.
     fn integrate(
         &self,
         previous: &Self::State,
@@ -153,10 +154,11 @@ pub trait HeuristicModel: Model {
     /// - `current` the state to traverse from
     /// - `goal` the overall goal node to estimate the future costs from
     ///
-    /// Given the current state and the goal state, what can we estimate the future costs will be?
-    /// The heuristic determines where the most fertile paths to search exist, assuming that
-    /// continuing along a direct path to the goal will result in the most efficient overall
-    /// solution.  This ensures that paths which take a less direct route are explored last.
+    /// Given the current state and the goal state, what can we estimate the future costs will
+    /// be? The heuristic determines where the most fertile paths to search exist, assuming
+    /// that continuing along a direct path to the goal will result in the most efficient
+    /// overall solution.  This ensures that paths which take a less direct route are
+    /// explored last.
     ///
     /// The canonical heuristic function is often also the euclidian distance from the current
     /// state to the goal state.
@@ -164,9 +166,10 @@ pub trait HeuristicModel: Model {
     /// The heuristic works best when its units are the same--or at least in the same order of
     /// magnitude--as the cost.
     ///
-    /// \warning The heuristic must be admissable or optimistic to get optimal results; that is,
-    /// the heuristic **must never over-estimate the cost** of a future path.  Over-estimation
-    /// breaks optimality guarantees. Furthermore the heuristic must never return a negative value.
+    /// \warning The heuristic must be admissable or optimistic to get optimal results; that
+    /// is, the heuristic **must never over-estimate the cost** of a future path.
+    /// Over-estimation breaks optimality guarantees. Furthermore the heuristic must never
+    /// return a negative value.
     fn heuristic(&self, current: &Self::State, goal: &Self::State) -> Self::Cost;
 }
 
@@ -179,8 +182,8 @@ where
 
 /// The result of optimization: a trajectory from the start to goal
 ///
-/// A trajectory which carries the cost of its execution, and all of the steps as pairs of states
-/// and controls, who's types are determined by the Model.
+/// A trajectory which carries the cost of its execution, and all of the steps as pairs of
+/// states and controls, who's types are determined by the Model.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Trajectory<M>
 where
@@ -243,4 +246,121 @@ where
         goal: &M::State,
         sampler: &mut S,
     ) -> PathResult<M>;
+}
+
+use self::astar::{AStar, OptimalAStar};
+use self::dijkstra::Dijkstra;
+
+pub enum Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    AStar(AStar<M>),
+    Dijkstra(Dijkstra<M>),
+    OptimalAStar(OptimalAStar<M>),
+}
+
+impl<M, S> Optimizer<M, S> for Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+    S: Sampler<M>,
+{
+    fn next_trajectory(
+        &mut self,
+        model: &mut M,
+        start: &M::State,
+        goal: &M::State,
+        sampler: &mut S,
+    ) -> PathResult<M> {
+        match self {
+            Algorithm::AStar(o) => o.next_trajectory(model, start, goal, sampler),
+            Algorithm::OptimalAStar(o) => o.next_trajectory(model, start, goal, sampler),
+            Algorithm::Dijkstra(o) => o.next_trajectory(model, start, goal, sampler),
+        }
+    }
+
+    fn optimize(
+        &mut self,
+        model: &mut M,
+        start: &M::State,
+        goal: &M::State,
+        sampler: &mut S,
+    ) -> PathResult<M> {
+        match self {
+            Algorithm::AStar(o) => o.optimize(model, start, goal, sampler),
+            Algorithm::OptimalAStar(o) => o.optimize(model, start, goal, sampler),
+            Algorithm::Dijkstra(o) => o.optimize(model, start, goal, sampler),
+        }
+    }
+}
+
+impl<M> Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    pub fn new() -> Self {
+        Algorithm::AStar(AStar::new())
+    }
+
+    pub fn astar() -> Self {
+        Self::new()
+    }
+
+    pub fn optimal_astar() -> Self {
+        Algorithm::OptimalAStar(OptimalAStar::default())
+    }
+
+    pub fn dijkstra() -> Self {
+        Algorithm::Dijkstra(Dijkstra::default())
+    }
+
+    pub fn toggle(&mut self) {
+        match self {
+            Algorithm::AStar(_) => *self = Self::dijkstra(),
+            // hack: Skip optimal A* in the rotation
+            Algorithm::OptimalAStar(_) => *self = Self::dijkstra(),
+            Algorithm::Dijkstra(_) => *self = Self::astar(),
+        }
+    }
+
+    pub fn clear(&mut self) {
+        match self {
+            Algorithm::AStar(o) => o.clear(),
+            Algorithm::OptimalAStar(o) => o.clear(),
+            Algorithm::Dijkstra(o) => o.clear(),
+        }
+    }
+
+    pub fn inspect_queue<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (&'a M::State, &'a M::Control)> + 'a> {
+        match self {
+            Algorithm::AStar(o) => Box::new(o.inspect_queue()),
+            Algorithm::OptimalAStar(o) => Box::new(o.inspect_queue()),
+            Algorithm::Dijkstra(o) => Box::new(o.inspect_queue()),
+        }
+    }
+
+    pub fn inspect_discovered<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = &<<M as Model>::State as State>::Position> + 'a> {
+        match self {
+            Algorithm::AStar(o) => Box::new(o.inspect_discovered()),
+            Algorithm::OptimalAStar(o) => Box::new(o.inspect_discovered()),
+            Algorithm::Dijkstra(o) => Box::new(o.inspect_discovered()),
+        }
+    }
+}
+
+impl<M> Default for Algorithm<M>
+where
+    M: HeuristicModel,
+    M::Cost: radix_heap::Radix + Copy,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }

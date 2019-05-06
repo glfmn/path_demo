@@ -21,6 +21,10 @@ slog-term = "2.4.0"
 fnv = "1.0.3"
 radix-heap = "0.3.3" 
 
+[dependencies.tui]
+version = "0.5"
+default-features = false
+
 [dev-dependencies]
 criterion = "0.2"
 

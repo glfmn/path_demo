@@ -12,7 +12,7 @@ where
     M: Model,
     M::Cost: Radix + Copy,
 {
-    queue: RadixHeapMap<M::Cost, Node<M>>,
+    queue: RadixHeapMap<Reverse<M::Cost>, Node<M>>,
     grid: FnvHashMap<<<M as Model>::State as State>::Position, Id<M>>,
     parent_map: FnvHashMap<Id<M>, Node<M>>,
     id_counter: usize,
@@ -38,6 +38,22 @@ where
     M: Model,
     M::Cost: Radix + Copy,
 {
+    pub fn clear(&mut self) {
+        self.queue.clear();
+        self.parent_map.clear();
+        self.grid.clear();
+    }
+
+    pub fn inspect_queue(&self) -> impl Iterator<Item = (&M::State, &M::Control)> {
+        self.queue.values().map(|node| (&node.state, &node.control))
+    }
+
+    pub fn inspect_discovered(
+        &self,
+    ) -> impl Iterator<Item = &<<M as Model>::State as State>::Position> {
+        self.grid.keys()
+    }
+
     #[inline(always)]
     fn step<S>(
         &mut self,
@@ -82,7 +98,7 @@ where
                 }
 
                 self.parent_map.insert(child.id.clone(), current.clone());
-                self.queue.push(child.id.g.0, child);
+                self.queue.push(child.id.g, child);
             }
         }
 

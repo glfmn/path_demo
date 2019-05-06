@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::ops::{Index, IndexMut};
 
-use super::Position;
+use super::{Position, Rect};
 
 /// A Tile on the map
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,8 +49,8 @@ pub struct Map {
 impl Map {
     /// Create a new Map of blocking tiles
     ///
-    /// The default map is impossible to traverse, with the assumption that areas will be carved
-    /// out of the map.
+    /// The default map is impossible to traverse, with the assumption that areas will be
+    /// carved out of the map.
     pub fn new(width: u32, height: u32) -> Self {
         let tiles = vec![Tile::WALL; (width * height) as usize];
         Map { tiles, width, height }
@@ -148,8 +148,8 @@ impl Map {
 
     /// Return a set of adjacent tiles which satisfy a predicate
     ///
-    /// If the first tile does not match the predicate, then the selection exits early and returns
-    /// an empty set.
+    /// If the first tile does not match the predicate, then the selection exits early and
+    /// returns an empty set.
     pub fn flood_select<F>(&self, x: u32, y: u32, predicate: F) -> HashSet<(u32, u32)>
     where
         F: Fn(&Tile) -> bool,
@@ -241,6 +241,11 @@ impl Map {
 
         Ok(size)
     }
+
+    /// Iterate over the tiles inside a rectangular area contained in the map
+    pub fn iter_rect(&self, area: Rect) -> MapArea<'_> {
+        MapArea { x: 0, y: 0, area, map: self }
+    }
 }
 
 impl Index<(u32, u32)> for Map {
@@ -288,6 +293,38 @@ impl IndexMut<Position> for Map {
 
         let index = self.sub2ind(x, y);
         &mut self.tiles[index]
+    }
+}
+
+/// Iterate over the tiles inside a rectangular area contained in the map
+///
+/// See `Map::iter_rect`
+pub struct MapArea<'a> {
+    x: u32,
+    y: u32,
+    area: Rect,
+    map: &'a Map,
+}
+
+impl<'a> Iterator for MapArea<'a> {
+    type Item = (Position, &'a Tile);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let pos = (self.x, self.y).into();
+        if self.y < self.area.h {
+            if self.x < self.area.w {
+                self.x += 1;
+            } else {
+                self.x = 0;
+                self.y += 1;
+            }
+        } else {
+            return None;
+        }
+
+        self.area
+            .transform(&pos)
+            .and_then(|map_pos| self.map.pos(&map_pos).map(|tile| (pos, tile)))
     }
 }
 
